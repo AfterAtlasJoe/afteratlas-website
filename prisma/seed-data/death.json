@@ -1,0 +1,192 @@
+{
+  "eventType": {
+    "id": "death",
+    "name": "Loss of a Loved One",
+    "description": "Guidance for what to do after someone dies, and for making sure your own affairs are in order beforehand.",
+    "active": true
+  },
+  "vendorCategories": [
+    {
+      "id": "realtors",
+      "slug": "realtors",
+      "name": "Realtors",
+      "description": "Help selling or renting an inherited property."
+    },
+    {
+      "id": "probate-lawyers",
+      "slug": "probate-lawyers",
+      "name": "Probate Lawyers",
+      "description": "Estate and probate attorneys."
+    },
+    {
+      "id": "financial-advisors",
+      "slug": "financial-advisors",
+      "name": "Financial Advisors",
+      "description": "Help with life insurance claims, inherited accounts, and financial planning."
+    }
+  ],
+  "vendors": [
+    {
+      "id": "vendor-acme-realty",
+      "name": "Acme Realty Group",
+      "description": "Full-service realtors experienced with estate sales.",
+      "priceRange": "$$",
+      "vendorCategoryId": "realtors",
+      "zipCodes": [],
+      "websiteUrl": "https://example.com/acme-realty",
+      "priority": 10
+    },
+    {
+      "id": "vendor-clearpath-financial",
+      "name": "Clearpath Financial",
+      "description": "Advisors who specialize in life insurance claims and inherited accounts.",
+      "priceRange": "$$",
+      "vendorCategoryId": "financial-advisors",
+      "zipCodes": [],
+      "websiteUrl": "https://example.com/clearpath-financial",
+      "priority": 10
+    }
+  ],
+  "questions": [
+    {
+      "id": "death-q-owned-home",
+      "mode": "post_event",
+      "category": "Home & Property",
+      "section": null,
+      "order": 1,
+      "prompt": "Did your loved one own a home?",
+      "answerOptions": [
+        { "id": "death-q-owned-home-yes", "label": "Yes", "value": "yes", "order": 1 },
+        { "id": "death-q-owned-home-no", "label": "No", "value": "no", "order": 2 }
+      ]
+    },
+    {
+      "id": "death-q-had-mortgage",
+      "mode": "post_event",
+      "category": "Home & Property",
+      "section": null,
+      "order": 2,
+      "prompt": "Was there a mortgage on the home?",
+      "answerOptions": [
+        { "id": "death-q-had-mortgage-yes", "label": "Yes", "value": "yes", "order": 1 },
+        { "id": "death-q-had-mortgage-no", "label": "No", "value": "no", "order": 2 }
+      ]
+    },
+    {
+      "id": "death-q-life-insurance",
+      "mode": "post_event",
+      "category": "Financial Accounts",
+      "section": null,
+      "order": 3,
+      "prompt": "Did they have a life insurance policy?",
+      "answerOptions": [
+        { "id": "death-q-life-insurance-yes", "label": "Yes", "value": "yes", "order": 1 },
+        { "id": "death-q-life-insurance-no", "label": "No", "value": "no", "order": 2 }
+      ]
+    },
+    {
+      "id": "planning-q-has-will",
+      "mode": "planning",
+      "category": "Estate Planning",
+      "section": null,
+      "order": 1,
+      "prompt": "Do you have a will on file?",
+      "answerOptions": [
+        { "id": "planning-q-has-will-yes", "label": "Yes", "value": "yes", "order": 1 },
+        { "id": "planning-q-has-will-no", "label": "No", "value": "no", "order": 2 }
+      ]
+    },
+    {
+      "id": "planning-q-has-life-insurance",
+      "mode": "planning",
+      "category": "Insurance",
+      "section": null,
+      "order": 2,
+      "prompt": "Do you have a life insurance policy?",
+      "answerOptions": [
+        { "id": "planning-q-has-life-insurance-yes", "label": "Yes", "value": "yes", "order": 1 },
+        { "id": "planning-q-has-life-insurance-no", "label": "No", "value": "no", "order": 2 }
+      ]
+    }
+  ],
+  "branches": [
+    {
+      "questionId": "death-q-owned-home",
+      "answerOptionId": "death-q-owned-home-yes",
+      "nextQuestionId": "death-q-had-mortgage",
+      "skipQuestionIds": []
+    },
+    {
+      "questionId": "death-q-owned-home",
+      "answerOptionId": "death-q-owned-home-no",
+      "nextQuestionId": null,
+      "skipQuestionIds": ["death-q-had-mortgage"]
+    }
+  ],
+  "checklistItems": [
+    {
+      "id": "death-item-notify-mortgage-lender",
+      "title": "Notify the mortgage lender",
+      "description": "Let the lender know the borrower has died so payments and account access are handled correctly.",
+      "category": "Home & Property",
+      "relatedLinks": [],
+      "vendorCategoryId": null,
+      "triggers": [
+        { "questionId": "death-q-had-mortgage", "answerOptionId": "death-q-had-mortgage-yes" }
+      ]
+    },
+    {
+      "id": "death-item-sell-or-rent-property",
+      "title": "Decide whether to sell, rent, or keep the property",
+      "description": "An inherited home often needs a decision fairly quickly. A realtor experienced with estate sales can help you weigh the options.",
+      "category": "Home & Property",
+      "relatedLinks": [],
+      "vendorCategoryId": "realtors",
+      "triggers": [
+        { "questionId": "death-q-owned-home", "answerOptionId": "death-q-owned-home-yes" }
+      ]
+    },
+    {
+      "id": "death-item-file-life-insurance-claim",
+      "title": "File a life insurance claim",
+      "description": "Contact the insurer with a certified copy of the death certificate to start the claims process.",
+      "category": "Financial Accounts",
+      "relatedLinks": [],
+      "vendorCategoryId": "financial-advisors",
+      "triggers": [
+        { "questionId": "death-q-life-insurance", "answerOptionId": "death-q-life-insurance-yes" }
+      ]
+    }
+  ],
+  "gaps": [
+    {
+      "id": "planning-gap-no-will",
+      "title": "No will on file",
+      "description": "Without a will, state law decides how your estate is divided and who cares for any minor children. A probate or estate lawyer can help you put one in place.",
+      "category": "Estate Planning",
+      "vendorCategoryId": "probate-lawyers",
+      "triggers": [
+        { "questionId": "planning-q-has-will", "answerOptionId": "planning-q-has-will-no" }
+      ]
+    },
+    {
+      "id": "planning-gap-no-life-insurance",
+      "title": "No life insurance policy",
+      "description": "Life insurance gives your family a financial cushion. A financial advisor can help you find a policy that fits your situation.",
+      "category": "Insurance",
+      "vendorCategoryId": "financial-advisors",
+      "triggers": [
+        { "questionId": "planning-q-has-life-insurance", "answerOptionId": "planning-q-has-life-insurance-no" }
+      ]
+    }
+  ],
+  "articles": [
+    {
+      "slug": "what-to-do-in-the-first-48-hours",
+      "title": "What to do in the first 48 hours after a death",
+      "body": "The first two days are about the essentials: get a legal pronouncement of death, arrange transportation of the body, and notify close family. Everything else on the checklist can wait a few days.",
+      "publishedAt": "2026-01-01T00:00:00.000Z",
+      "eventTypeId": "death"
+    }
+  ]
+}
