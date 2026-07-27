@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { MultiselectGroupCard } from "./multiselect-group-card";
 import { QuestionCard } from "./question-card";
 import { SectionNav } from "./section-nav";
+import { TopicBucketPicker, type TopicBucketData } from "./topic-bucket-picker";
 import {
   TriggeredItemsSummary,
   type TriggeredItemPreview,
@@ -20,10 +21,14 @@ type SurveyRunnerProps = {
   questions: QuestionData[];
   initialAnswers: Record<string, string>;
   initialCurrentQuestionId: string;
-  /** Question ids visited so far, in first-encountered order. Drives the Back button and which sections have been revealed in the nav. */
+  /** Question ids visited so far, in first-encountered order. Drives the Back button. */
   initialHistory: string[];
   /** Used to scope inline Yelp vendor recommendations on questions that reference them directly. Null if not collected (e.g. a pre-existing response). */
   zipCode: string | null;
+  /** Options for the topic_selection question's bucket picker. Empty if this eventType+mode has none defined. */
+  buckets: TopicBucketData[];
+  /** Question.category values chosen at the topic-selection question, if answered already. */
+  initialSelectedCategories: string[];
 };
 
 /**
@@ -40,6 +45,8 @@ export function SurveyRunner({
   initialCurrentQuestionId,
   initialHistory,
   zipCode,
+  buckets,
+  initialSelectedCategories,
 }: SurveyRunnerProps) {
   const router = useRouter();
   const [answers, setAnswers] =
@@ -48,6 +55,9 @@ export function SurveyRunner({
     initialCurrentQuestionId,
   );
   const [history, setHistory] = useState<string[]>(initialHistory);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    initialSelectedCategories,
+  );
   const [submitting, setSubmitting] = useState(false);
   const [newlyTriggeredItems, setNewlyTriggeredItems] = useState<
     TriggeredItemPreview[] | null
@@ -65,24 +75,48 @@ export function SurveyRunner({
     () => new Map(questions.map((q) => [q.id, q])),
     [questions],
   );
-  /**
-   * Only categories the user has actually reached, in the order they were
-   * first reached — not the full category list up front. A category stays
-   * visible (and clickable) once uncovered, even after navigating back
-   * before it.
-   */
-  const visibleCategories = useMemo(() => {
+  /** Every category, in first-encountered order across all questions (not scoped to what's been visited). */
+  const allCategoriesInOrder = useMemo(() => {
     const seen = new Set<string>();
     const ordered: string[] = [];
-    for (const questionId of history) {
-      const category = questionsById.get(questionId)?.category;
-      if (category && !seen.has(category)) {
-        seen.add(category);
-        ordered.push(category);
+    for (const q of orderedQuestions) {
+      if (!seen.has(q.category)) {
+        seen.add(q.category);
+        ordered.push(q.category);
       }
     }
     return ordered;
-  }, [history, questionsById]);
+  }, [orderedQuestions]);
+  /** Categories covered by any bucket — these are the ones subject to topic-selection filtering. */
+  const bucketedCategories = useMemo(
+    () => new Set(buckets.flatMap((bucket) => bucket.categories)),
+    [buckets],
+  );
+  /**
+   * Before the topic-selection question is answered, only categories
+   * reached so far (i.e. the mandatory intro). Once buckets are chosen,
+   * shows the full selected set right away — the choice was already made
+   * upfront, so there's nothing left to progressively reveal — plus any
+   * category no bucket covers (the same mandatory intro).
+   */
+  const visibleCategories = useMemo(() => {
+    if (selectedCategories.length === 0) {
+      const seen = new Set<string>();
+      const ordered: string[] = [];
+      for (const questionId of history) {
+        const category = questionsById.get(questionId)?.category;
+        if (category && !seen.has(category)) {
+          seen.add(category);
+          ordered.push(category);
+        }
+      }
+      return ordered;
+    }
+    const selectedSet = new Set(selectedCategories);
+    return allCategoriesInOrder.filter(
+      (category) => !bucketedCategories.has(category) || selectedSet.has(category),
+    );
+  }, [selectedCategories, history, questionsById, allCategoriesInOrder, bucketedCategories]);
   const completedCategories = useMemo(() => {
     const complete = new Set<string>();
     for (const category of visibleCategories) {
@@ -120,6 +154,7 @@ export function SurveyRunner({
 
   async function submitAnswers(
     pairs: { questionId: string; answerOptionId: string }[],
+    extra?: Record<string, unknown>,
   ) {
     if (submitting || pairs.length === 0) return;
     setSubmitting(true);
@@ -128,7 +163,9 @@ export function SurveyRunner({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          pairs.length === 1 ? pairs[0] : { answers: pairs },
+          pairs.length === 1
+            ? { ...pairs[0], ...extra }
+            : { answers: pairs, ...extra },
         ),
       });
       if (!response.ok) {
@@ -137,6 +174,7 @@ export function SurveyRunner({
       const updated = await response.json();
       setAnswers(updated.answers);
       setHistory(updated.history);
+      setSelectedCategories(updated.selectedCategories);
       const completed = updated.status === "completed" || !updated.lastQuestionId;
       if (updated.newlyTriggeredItems?.length > 0) {
         setNewlyTriggeredItems(updated.newlyTriggeredItems);
@@ -183,6 +221,8 @@ export function SurveyRunner({
       if (!response.ok) {
         throw new Error("Failed to navigate");
       }
+      const updated = await response.json();
+      setHistory(updated.history);
       setCurrentQuestionId(questionId);
     } finally {
       setSubmitting(false);
@@ -199,9 +239,12 @@ export function SurveyRunner({
   }
 
   function handleSelectCategory(category: string) {
-    const firstInCategory = history.find(
-      (questionId) => questionsById.get(questionId)?.category === category,
-    );
+    // Once buckets are chosen, the whole selected set is committed to —
+    // move freely between them rather than only ones already visited.
+    const firstInCategory =
+      selectedCategories.length > 0
+        ? orderedQuestions.find((q) => q.category === category)?.id
+        : history.find((questionId) => questionsById.get(questionId)?.category === category);
     if (firstInCategory) {
       void navigateTo(firstInCategory);
     }
@@ -235,6 +278,19 @@ export function SurveyRunner({
           <TriggeredItemsSummary
             items={newlyTriggeredItems}
             onContinue={handleContinueFromSummary}
+          />
+        ) : currentQuestion?.type === "topic_selection" ? (
+          <TopicBucketPicker
+            buckets={buckets}
+            disabled={submitting}
+            onSubmit={(categories) => {
+              const answerOptionId = currentQuestion.answerOptions[0]?.id;
+              if (!answerOptionId) return;
+              void submitAnswers(
+                [{ questionId: currentQuestion.id, answerOptionId }],
+                { selectedCategories: categories },
+              );
+            }}
           />
         ) : currentGroupQuestions ? (
           <MultiselectGroupCard

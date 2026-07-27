@@ -7,6 +7,8 @@ export type AnswerOptionData = {
 
 export type QuestionData = {
   id: string;
+  /** "topic_selection" gets the bucket picker instead of a normal QuestionCard — see SurveyRunner. */
+  type: "bool" | "select" | "info" | "topic_selection";
   prompt: string;
   description: string | null;
   category: string;

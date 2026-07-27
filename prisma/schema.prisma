@@ -33,6 +33,7 @@ model EventType {
   gaps            Gap[]
   surveyResponses SurveyResponse[]
   articles        Article[]
+  topicBuckets    TopicBucket[]
 
   @@map("event_types")
 }
@@ -61,12 +62,46 @@ model Jurisdiction {
 // Survey engine
 // ---------------------------------------------------------------------------
 
-/// A single branching-survey question, scoped to an EventType + mode.
-model Question {
+/// A category the user can opt into at the topic-selection question,
+/// grouping several `Question.category` values under one higher-level
+/// choice (e.g. "Money & Property" containing Finances, Possessions,
+/// Business, ...) so the picker stays a handful of choices instead of the
+/// full flat category list. `SurveyResponse.selectedCategories` stores the
+/// resolved category strings once chosen, not bucket ids — buckets are
+/// only how the choice is presented, not a data relationship elsewhere.
+model TopicBucket {
   id          String     @id @default(cuid())
   eventTypeId String
   eventType   EventType  @relation(fields: [eventTypeId], references: [id])
   mode        SurveyMode
+
+  name       String
+  order      Int
+  categories String[]
+
+  @@index([eventTypeId, mode])
+  @@map("topic_buckets")
+}
+
+/// Mirrors the source spreadsheet's row types (see spec §6). Only
+/// `topic_selection` currently gets distinct frontend treatment (the
+/// bucket picker) — `bool`/`select`/`info` all render as a normal
+/// QuestionCard today, but are modeled distinctly for fidelity to the
+/// source data and in case that changes.
+enum QuestionType {
+  bool
+  select
+  info
+  topic_selection
+}
+
+/// A single branching-survey question, scoped to an EventType + mode.
+model Question {
+  id          String       @id @default(cuid())
+  eventTypeId String
+  eventType   EventType    @relation(fields: [eventTypeId], references: [id])
+  mode        SurveyMode
+  type        QuestionType @default(bool)
 
   /// Null means the question applies in every jurisdiction (the vast
   /// majority) — set only for jurisdiction-specific content such as
@@ -82,6 +117,20 @@ model Question {
   /// Global sequence across the whole eventType+mode question set (not scoped to category).
   order       Int
   section     String?
+
+  /// This question's category's position in the actual authored tour
+  /// through categories — NOT the same as sorting categories by their
+  /// own `order`/uid range, since several categories are only reachable
+  /// via a mid-sequence splice into an earlier uid range (e.g.
+  /// Guardianship's block sits at low uids but is only entered from late
+  /// in the tour, after Post-Death Benefits). Null for categories no
+  /// TopicBucket covers (e.g. the mandatory intro). Shared by every
+  /// question in the same category. Used only to redirect at a category
+  /// boundary when advanceSurvey finds the natural next category wasn't
+  /// selected — jump to the next-by-this-sequence category that was,
+  /// rather than the uid-order fallback (which can't reach a category
+  /// whose block sits earlier in uid space, like Guardianship's).
+  categorySequence Int?
 
   /// Skip this question entirely if the referenced ChecklistItem was
   /// already triggered earlier in the same session (session-level dedup
@@ -399,9 +448,19 @@ model SurveyResponse {
   lastQuestionId String?
 
   /// Question ids visited so far, in first-encountered order. Drives the
-  /// "back" button and the section nav only showing categories the user
-  /// has actually reached (not the full category list up front).
+  /// "back" button.
   history String[] @default([])
+
+  /// Question.category values the user opted into at the topic-selection
+  /// question (via TopicBucket), e.g. every category inside "Money &
+  /// Property" if that bucket was checked. Empty until that question is
+  /// answered. Drives both the section nav (shows exactly this set, all
+  /// at once, rather than revealing categories as they're reached) and
+  /// `advanceSurvey`'s skip logic (any category covered by some
+  /// TopicBucket but not in this list is skipped entirely). Categories
+  /// not covered by any bucket — e.g. the mandatory intro sequence — are
+  /// never filtered, regardless of this list.
+  selectedCategories String[] @default([])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

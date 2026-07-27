@@ -62,17 +62,24 @@ export async function SurveyPage({
     redirect(`${resultsBasePath}/${response.id}`);
   }
 
-  const questions = await prisma.question.findMany({
-    where: { eventTypeId, mode },
-    orderBy: { order: "asc" },
-    include: {
-      answerOptions: { orderBy: { order: "asc" } },
-      vendorCategory: true,
-    },
-  });
+  const [questions, buckets] = await Promise.all([
+    prisma.question.findMany({
+      where: { eventTypeId, mode },
+      orderBy: { order: "asc" },
+      include: {
+        answerOptions: { orderBy: { order: "asc" } },
+        vendorCategory: true,
+      },
+    }),
+    prisma.topicBucket.findMany({
+      where: { eventTypeId, mode },
+      orderBy: { order: "asc" },
+    }),
+  ]);
 
   const questionData: QuestionData[] = questions.map((q) => ({
     id: q.id,
+    type: q.type,
     prompt: q.prompt,
     description: q.description,
     category: q.category,
@@ -101,6 +108,8 @@ export async function SurveyPage({
       initialCurrentQuestionId={response.lastQuestionId}
       initialHistory={initialHistory}
       zipCode={response.zipCode}
+      buckets={buckets}
+      initialSelectedCategories={response.selectedCategories}
     />
   );
 }
