@@ -68,13 +68,6 @@ type OrderedQuestion = {
   skipIfChecklistItemShownId?: string | null;
   category: string;
   order: number;
-  /**
-   * This question's category's position in the actual authored tour
-   * through categories (not the same as sorting by uid range — see
-   * seed-xlsx.ts's CANONICAL_CATEGORY_ORDER). Null for a category no
-   * TopicBucket covers, e.g. the mandatory intro.
-   */
-  categorySequence?: number | null;
 };
 
 /**
@@ -86,6 +79,16 @@ type OrderedQuestion = {
 export type CategoryFilter = {
   allBucketedCategories: Set<string>;
   selectedCategories: Set<string>;
+  /**
+   * category -> position in the topic-selection bucket picker's own
+   * order (each TopicBucket's `order`, then that bucket's `categories`
+   * array order) — this is what decides visit order once inside the
+   * bucketed portion of the survey, matching what the bucket picker and
+   * section nav show, rather than the spreadsheet's own hand-authored
+   * tour through categories. A category outside this map (e.g. the
+   * mandatory intro) is never redirected.
+   */
+  categoryOrder: Map<string, number>;
 };
 
 /**
@@ -106,31 +109,26 @@ function categoryEntryPoints(orderedQuestions: OrderedQuestion[]): Map<string, s
 }
 
 /**
- * Given a category not selected by the user, finds the entry point of the
- * next category (by `categorySequence`, strictly after `fromSequence`)
- * that *was* selected. Returns null if none remain (survey complete for
- * this selection). uid-order fallback can't do this in general — a
- * bucketed category's own uid range can sit well before the point the
- * walk currently occupies (e.g. Guardianship's block, only entered from
- * late in the tour), so scanning forward through `orderedQuestions` would
- * never reach it.
+ * Finds the entry point of the next category — by `categoryOrder`,
+ * strictly after `fromOrder` — that the user selected. Returns null if
+ * none remain (survey complete for this selection, at least along this
+ * ordering). uid-order scanning can't do this in general: a bucketed
+ * category's own uid range can sit well before the point the walk
+ * currently occupies (e.g. Guardianship's block sits at low uids despite
+ * being ordered first in the bucket picker), so scanning forward through
+ * `orderedQuestions` would never reach it — jumping straight to the
+ * category's own entry point sidesteps that entirely.
  */
 function nextSelectedCategoryEntry(
-  fromSequence: number,
+  fromOrder: number,
   orderedQuestions: OrderedQuestion[],
   selectedCategories: Set<string>,
+  categoryOrder: Map<string, number>,
 ): string | null {
-  const bySequence = new Map<number, string>();
-  for (const q of orderedQuestions) {
-    if (q.categorySequence != null && !bySequence.has(q.categorySequence)) {
-      bySequence.set(q.categorySequence, q.category);
-    }
-  }
   const entryPoints = categoryEntryPoints(orderedQuestions);
-  const sequences = [...bySequence.keys()].sort((a, b) => a - b);
-  for (const seq of sequences) {
-    if (seq <= fromSequence) continue;
-    const category = bySequence.get(seq)!;
+  const categoriesByOrder = [...categoryOrder.entries()].sort((a, b) => a[1] - b[1]);
+  for (const [category, order] of categoriesByOrder) {
+    if (order <= fromOrder) continue;
     if (selectedCategories.has(category)) {
       return entryPoints.get(category) ?? null;
     }
@@ -147,12 +145,19 @@ function nextSelectedCategoryEntry(
  * earlier branch's `skipQuestionIds` named it, or because its
  * `skipIfChecklistItemShownId` item was already triggered this session
  * (dedup for content reachable via more than one path; see §5/§6 of the
- * spec) — landing on the first question that isn't skipped. If that
- * lands in a bucketed category the user didn't select, jumps directly to
- * the entry point of the next category (by categorySequence) that *was*
- * selected, rather than scanning uid order (see nextSelectedCategoryEntry
- * for why that fallback can't work here). Returns null once there is
- * nothing left to ask (survey complete).
+ * spec) — landing on the first question that isn't skipped.
+ *
+ * If that lands in a *different* category than the question just
+ * answered, the category to show is decided by `categoryFilter.categoryOrder`
+ * (the bucket picker's own order) rather than whatever uid the resolved
+ * branch/fallback happened to point at — the underlying graph edge only
+ * guarantees *some* forward path exists (see seed-xlsx.ts's
+ * ALWAYS_JUMP_TO_FIXES), not which category should come next once the
+ * user has chosen an order at the topic-selection question. This also
+ * rescues a true dead end (no branch, no fallback) the same way, so a
+ * category whose last question has no further edge at all still advances
+ * to the next selected category instead of ending the survey early.
+ * Returns null once there is nothing left to ask (survey complete).
  */
 export function advanceSurvey(
   orderedQuestions: OrderedQuestion[],
@@ -200,19 +205,37 @@ export function advanceSurvey(
     guard++;
   }
 
-  if (categoryFilter && candidate) {
-    const candidateQuestion = orderedQuestions.find((q) => q.id === candidate);
-    if (
-      candidateQuestion &&
-      categoryFilter.allBucketedCategories.has(candidateQuestion.category) &&
-      !categoryFilter.selectedCategories.has(candidateQuestion.category) &&
-      candidateQuestion.categorySequence != null
-    ) {
-      candidate = nextSelectedCategoryEntry(
-        candidateQuestion.categorySequence,
+  if (categoryFilter) {
+    const answeredQuestion = orderedQuestions.find((q) => q.id === answeredQuestionId);
+    const candidateQuestion = candidate ? orderedQuestions.find((q) => q.id === candidate) : null;
+    const stayedInSameCategory =
+      candidateQuestion != null &&
+      answeredQuestion != null &&
+      candidateQuestion.category === answeredQuestion.category;
+
+    if (!stayedInSameCategory) {
+      const fromOrder =
+        (answeredQuestion && categoryFilter.categoryOrder.get(answeredQuestion.category)) ?? -1;
+      const redirected = nextSelectedCategoryEntry(
+        fromOrder,
         orderedQuestions,
         categoryFilter.selectedCategories,
+        categoryFilter.categoryOrder,
       );
+      if (redirected !== null) {
+        candidate = redirected;
+      } else if (
+        candidateQuestion &&
+        categoryFilter.allBucketedCategories.has(candidateQuestion.category) &&
+        !categoryFilter.selectedCategories.has(candidateQuestion.category)
+      ) {
+        // No selected category left ahead, and the natural candidate is
+        // itself a bucketed-but-unselected one — nothing left to show.
+        candidate = null;
+      }
+      // else: no selected category left ahead, but the natural candidate
+      // isn't a bucketed dead end either (e.g. truly no more content, or
+      // content outside every bucket) — leave it as the natural result.
     }
   }
 

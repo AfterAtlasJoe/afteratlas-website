@@ -191,7 +191,6 @@ export async function PATCH(
         type: true,
         category: true,
         order: true,
-        categorySequence: true,
         skipIfChecklistItemShownId: true,
       },
     }),
@@ -221,6 +220,18 @@ export async function PATCH(
 
   const allBucketedCategories = new Set(topicBuckets.flatMap((bucket) => bucket.categories));
   const selectedCategories = new Set(selectedCategoriesInput ?? response.selectedCategories);
+  // Visit order once inside the bucketed portion: each TopicBucket's own
+  // `order`, then that bucket's `categories` array order — matching the
+  // bucket picker and section nav rather than the spreadsheet's tour.
+  const categoryOrder = new Map<string, number>();
+  let categoryOrderCursor = 0;
+  for (const bucket of topicBuckets.slice().sort((a, b) => a.order - b.order)) {
+    for (const category of bucket.categories) {
+      if (!categoryOrder.has(category)) {
+        categoryOrder.set(category, categoryOrderCursor++);
+      }
+    }
+  }
 
   const answersBefore: SurveyAnswers = (response.answers as SurveyAnswers) ?? {};
   const triggeredBefore = new Set(
@@ -261,7 +272,7 @@ export async function PATCH(
     answers,
     branches,
     triggeredChecklistItemIds,
-    { allBucketedCategories, selectedCategories },
+    { allBucketedCategories, selectedCategories, categoryOrder },
   );
 
   const history =

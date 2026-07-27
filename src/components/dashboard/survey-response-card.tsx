@@ -25,6 +25,7 @@ export function SurveyResponseCard({
   const [editing, setEditing] = useState(false);
   const [titleValue, setTitleValue] = useState(title);
   const [busy, setBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function saveTitle() {
     const trimmed = titleValue.trim();
@@ -53,13 +54,20 @@ export function SurveyResponseCard({
       return;
     }
     setBusy(true);
-    const response = await fetch(`/api/survey-responses/${id}`, {
-      method: "DELETE",
-    });
-    if (response.ok) {
-      router.refresh();
-    } else {
+    setDeleteError(null);
+    try {
+      const response = await fetch(`/api/survey-responses/${id}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        router.refresh();
+      } else {
+        setBusy(false);
+        setDeleteError("Something went wrong. Please try again.");
+      }
+    } catch {
       setBusy(false);
+      setDeleteError("Something went wrong. Please try again.");
     }
   }
 
@@ -96,6 +104,9 @@ export function SurveyResponseCard({
         <p className="text-xs text-zinc-500">
           {subtitle} &middot; {createdAt}
         </p>
+        {deleteError ? (
+          <p className="text-xs text-red-600">{deleteError}</p>
+        ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-4">
         <Link href={href} className="text-sm underline">

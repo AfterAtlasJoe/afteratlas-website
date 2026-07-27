@@ -123,32 +123,43 @@ now renders `TopicBucketPicker`: a handful of `TopicBucket` rows (e.g.
 "Legal & Estate" grouping Guardianship/Last wishes/Filing Paperwork), each
 covering several `Question.category` values, so the choice is 4 things
 instead of a flat 13. The chosen categories are flattened and stored on
-`SurveyResponse.selectedCategories`; the section nav shows exactly that
-set (plus any category no bucket covers, e.g. "Getting Started") right
-away rather than revealing them as they're reached, and lets you move
+`SurveyResponse.selectedCategories`. The section nav (`SectionNav`)
+groups the chosen categories under their bucket, in the same order and
+grouping as the picker itself — not a flat list — and lets you move
 freely between them, not just back.
 
-This surfaced a real wrinkle in the source data: the spreadsheet's
+Once a selection is made, **visit order inside the survey also follows
+the bucket picker's own order** (each `TopicBucket.order`, then that
+bucket's `categories` array order) rather than the order the categories
+happen to appear in the source spreadsheet. `advanceSurvey`
+(`src/lib/survey-engine.ts`) enforces this at every category boundary: as
+soon as an answer would move to a *different* category than the one just
+finished, it's redirected to the entry point of the next category in
+`categoryOrder` order that's actually selected — rather than accepting
+whatever category the underlying spreadsheet's own hand-authored jump
+happens to name — computed at request time in the PATCH route from
+`TopicBucket.order`/`categories`, not stored on `Question`.
+
+This surfaced a real wrinkle in the source data: the spreadsheet's own
 categories aren't visited in uid order, or even in their own numeric
-topic prefix order (1 Guardianship … 13 Self Care) — they're one
+topic prefix order (1 Guardianship … 13 Self Care) — they follow one
 hand-authored tour that loops around uid-space (Filing Paperwork →
 Notifying Loved Ones → Possessions → Expenses → Finances → Business →
 Loose Ends → Last wishes → Post-Death Benefits → Guardianship →
 Employment → Digital Assets → Self Care). Guardianship/Employment/Digital
-Assets in particular are *only* entered via the `171: 42` splice late in
-that tour despite sitting at low uids — so skipping an unselected
-category by scanning forward in uid order can silently strand a selected
-category positioned earlier in uid space. `Question.categorySequence`
-records each category's real position in this tour (seeded from
-`CANONICAL_CATEGORY_ORDER` in `seed-xlsx.ts`, matching the
-`ALWAYS_JUMP_TO_FIXES` comments exactly), and `advanceSurvey` uses it to
-jump straight to the entry point of the next *selected* category by
-sequence when the natural next one wasn't chosen, rather than scanning
-uid order. Verified for 7 representative selections (all four buckets;
-each bucket alone; two non-adjacent buckets together) by walking every
-answer branch with the real engine — every selected category's questions
-are reached, no unselected one ever is, and the all-buckets case still
-reaches all 177/177 questions exactly as before this feature.
+Assets in particular are *only* reachable via the `171: 42` splice late
+in that tour despite sitting at low uids (see `ALWAYS_JUMP_TO_FIXES` in
+`seed-xlsx.ts`) — those splices still matter for guaranteeing every
+category's internal chain has *some* forward path to hand off from, but
+no longer dictate which category comes next once a bucket selection is
+made; `categoryEntryPoints()` (jumping straight to a category's
+lowest-order question) replaces scanning uid order or following that
+edge's specific target. Verified for 7 representative selections (all
+four buckets; each bucket alone; two non-adjacent buckets together) by
+walking every answer branch with the real engine — every selected
+category's questions are reached in the expected bucket order, no
+unselected one ever is, and the all-buckets case still reaches every
+question exactly as before this feature.
 
 **Data-quality note:** the source spreadsheet's own change history shows
 three categories (Guardianship, Employment, Digital Assets) and a
