@@ -79,6 +79,12 @@ export async function SurveyPage({
     answerOptions: q.answerOptions,
   }));
 
+  // Responses created before the `history` field existed have an empty
+  // array — fall back to the current question so Back/section-nav still
+  // have something to work with instead of showing nothing.
+  const initialHistory =
+    response.history.length > 0 ? response.history : [response.lastQuestionId];
+
   return (
     <SurveyRunner
       responseId={response.id}
@@ -87,6 +93,7 @@ export async function SurveyPage({
       questions={questionData}
       initialAnswers={(response.answers as Record<string, string>) ?? {}}
       initialCurrentQuestionId={response.lastQuestionId}
+      initialHistory={initialHistory}
     />
   );
 }

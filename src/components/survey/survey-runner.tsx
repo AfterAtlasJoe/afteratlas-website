@@ -16,6 +16,8 @@ type SurveyRunnerProps = {
   questions: QuestionData[];
   initialAnswers: Record<string, string>;
   initialCurrentQuestionId: string;
+  /** Question ids visited so far, in first-encountered order. Drives the Back button and which sections have been revealed in the nav. */
+  initialHistory: string[];
 };
 
 /**
@@ -30,6 +32,7 @@ export function SurveyRunner({
   questions,
   initialAnswers,
   initialCurrentQuestionId,
+  initialHistory,
 }: SurveyRunnerProps) {
   const router = useRouter();
   const [answers, setAnswers] =
@@ -37,6 +40,7 @@ export function SurveyRunner({
   const [currentQuestionId, setCurrentQuestionId] = useState(
     initialCurrentQuestionId,
   );
+  const [history, setHistory] = useState<string[]>(initialHistory);
   const [submitting, setSubmitting] = useState(false);
 
   const orderedQuestions = useMemo(
@@ -47,20 +51,34 @@ export function SurveyRunner({
     () => new Map(questions.map((q) => [q.id, q])),
     [questions],
   );
-  const categories = useMemo(
-    () => Array.from(new Set(orderedQuestions.map((q) => q.category))),
-    [orderedQuestions],
-  );
+  /**
+   * Only categories the user has actually reached, in the order they were
+   * first reached — not the full category list up front. A category stays
+   * visible (and clickable) once uncovered, even after navigating back
+   * before it.
+   */
+  const visibleCategories = useMemo(() => {
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    for (const questionId of history) {
+      const category = questionsById.get(questionId)?.category;
+      if (category && !seen.has(category)) {
+        seen.add(category);
+        ordered.push(category);
+      }
+    }
+    return ordered;
+  }, [history, questionsById]);
   const completedCategories = useMemo(() => {
     const complete = new Set<string>();
-    for (const category of categories) {
+    for (const category of visibleCategories) {
       const inCategory = questions.filter((q) => q.category === category);
       if (inCategory.every((q) => answers[q.id])) {
         complete.add(category);
       }
     }
     return complete;
-  }, [categories, questions, answers]);
+  }, [visibleCategories, questions, answers]);
 
   const currentQuestion = questionsById.get(currentQuestionId);
 
@@ -104,6 +122,7 @@ export function SurveyRunner({
       }
       const updated = await response.json();
       setAnswers(updated.answers);
+      setHistory(updated.history);
       if (updated.status === "completed" || !updated.lastQuestionId) {
         router.push(resultsHref);
         return;
@@ -114,12 +133,40 @@ export function SurveyRunner({
     }
   }
 
+  /** Moves to a question already in history — the Back button, or clicking an already-revealed section — without touching answers. */
+  async function navigateTo(questionId: string) {
+    if (submitting || questionId === currentQuestionId) return;
+    setSubmitting(true);
+    try {
+      const response = await fetch(`/api/survey-responses/${responseId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ navigateTo: questionId }),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to navigate");
+      }
+      setCurrentQuestionId(questionId);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const historyIndex = history.indexOf(currentQuestionId);
+  const previousQuestionId = historyIndex > 0 ? history[historyIndex - 1] : null;
+
+  function handleBack() {
+    if (previousQuestionId) {
+      void navigateTo(previousQuestionId);
+    }
+  }
+
   function handleSelectCategory(category: string) {
-    const firstInCategory = orderedQuestions.find(
-      (q) => q.category === category,
+    const firstInCategory = history.find(
+      (questionId) => questionsById.get(questionId)?.category === category,
     );
     if (firstInCategory) {
-      setCurrentQuestionId(firstInCategory.id);
+      void navigateTo(firstInCategory);
     }
   }
 
@@ -130,13 +177,23 @@ export function SurveyRunner({
           {eventTypeName}
         </h1>
         <SectionNav
-          categories={categories}
-          currentCategory={currentQuestion?.category ?? categories[0]}
+          categories={visibleCategories}
+          currentCategory={currentQuestion?.category ?? visibleCategories[0]}
           completedCategories={completedCategories}
           onSelectCategory={handleSelectCategory}
         />
       </aside>
       <div>
+        {previousQuestionId ? (
+          <button
+            type="button"
+            onClick={handleBack}
+            disabled={submitting}
+            className="mb-4 text-sm text-zinc-500 hover:text-foreground disabled:opacity-50"
+          >
+            ← Back
+          </button>
+        ) : null}
         {currentGroupQuestions ? (
           <MultiselectGroupCard
             questions={currentGroupQuestions}

@@ -19,12 +19,16 @@ export async function findActiveSurveyResponse(
   });
 }
 
-/** Starts a new SurveyResponse at the first question, with a user-chosen title. */
+/**
+ * Starts a new SurveyResponse at the first question, with a user-chosen
+ * title and the zip code used to scope Yelp vendor search results.
+ */
 export async function createSurveyResponse(
   userId: string,
   eventTypeId: string,
   mode: SurveyMode,
   title: string,
+  zipCode: string,
 ) {
   const firstQuestion = await prisma.question.findFirst({
     where: { eventTypeId, mode },
@@ -37,8 +41,10 @@ export async function createSurveyResponse(
       eventTypeId,
       mode,
       title,
+      zipCode,
       answers: {},
       lastQuestionId: firstQuestion?.id ?? null,
+      history: firstQuestion ? [firstQuestion.id] : [],
     },
   });
 }

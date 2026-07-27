@@ -19,6 +19,7 @@ export function NewSurveyForm({
 }: NewSurveyFormProps) {
   const router = useRouter();
   const [title, setTitle] = useState(eventTypeName);
+  const [zipCode, setZipCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -33,6 +34,7 @@ export function NewSurveyForm({
         eventTypeId,
         mode,
         title: title.trim() || eventTypeName,
+        zipCode: zipCode.trim(),
       }),
     });
 
@@ -62,6 +64,24 @@ export function NewSurveyForm({
             required
             className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10 dark:bg-transparent"
           />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          Zip code
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]{5}"
+            maxLength={5}
+            value={zipCode}
+            onChange={(event) => setZipCode(event.target.value)}
+            required
+            placeholder="98101"
+            className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10 dark:bg-transparent"
+          />
+          <span className="text-xs text-zinc-500">
+            Used to find local vendor recommendations (funeral homes,
+            probate lawyers, etc.) as you go.
+          </span>
         </label>
         <button
           type="submit"
