@@ -8,6 +8,8 @@ import {
   resolveTriggeredItems,
   type SurveyAnswers,
 } from "@/lib/survey-engine";
+import { searchYelpBusinesses } from "@/lib/yelp";
+import { VendorRecommendations } from "@/components/vendors/vendor-recommendations";
 
 export const dynamic = "force-dynamic";
 
@@ -39,9 +41,7 @@ export default async function GapsPage({
     where: { eventTypeId: response.eventTypeId },
     include: {
       triggers: { select: { questionId: true, answerOptionId: true } },
-      vendorCategory: {
-        include: { vendors: { orderBy: { priority: "desc" }, take: 2 } },
-      },
+      vendorCategory: true,
     },
   });
 
@@ -50,6 +50,24 @@ export default async function GapsPage({
     (response.answers as SurveyAnswers) ?? {},
   );
   const grouped = groupByCategory(triggered);
+
+  const vendorCategories = new Map(
+    triggered
+      .map((gap) => gap.vendorCategory)
+      .filter((category) => category !== null)
+      .map((category) => [category.id, category]),
+  );
+  const vendorResultsByCategoryId = new Map(
+    await Promise.all(
+      Array.from(vendorCategories.values()).map(async (category) => {
+        const businesses = await searchYelpBusinesses(
+          category.name,
+          response.zipCode,
+        );
+        return [category.id, businesses] as const;
+      }),
+    ),
+  );
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-12">
@@ -80,33 +98,12 @@ export default async function GapsPage({
                   <p className="mb-2 font-medium">
                     Need a {gap.vendorCategory.name.toLowerCase()}?
                   </p>
-                  {gap.vendorCategory.vendors.length > 0 ? (
-                    <ul className="flex flex-col gap-1">
-                      {gap.vendorCategory.vendors.map((vendor) => (
-                        <li key={vendor.id}>
-                          <a
-                            href={vendor.websiteUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="underline"
-                          >
-                            {vendor.name}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <a
-                      href={`https://www.yelp.com/search?find_desc=${encodeURIComponent(
-                        gap.vendorCategory.name,
-                      )}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline"
-                    >
-                      Search Yelp for {gap.vendorCategory.name}
-                    </a>
-                  )}
+                  <VendorRecommendations
+                    categoryName={gap.vendorCategory.name}
+                    businesses={
+                      vendorResultsByCategoryId.get(gap.vendorCategory.id) ?? []
+                    }
+                  />
                 </div>
               ) : null}
             </div>

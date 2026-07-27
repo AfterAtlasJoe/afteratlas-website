@@ -379,6 +379,10 @@ model SurveyResponse {
   /// User-chosen name, set when starting the survey and editable later from the dashboard.
   title String?
 
+  /// Collected alongside the name at survey start; used to scope Yelp
+  /// vendor search results to the user's area.
+  zipCode String?
+
   /// question_id -> answer_option_id
   answers Json @default("{}")
 

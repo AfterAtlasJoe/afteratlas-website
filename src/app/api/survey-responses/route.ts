@@ -15,9 +15,10 @@ export async function POST(request: NextRequest) {
   const eventTypeId: string | undefined = body.eventTypeId;
   const mode: SurveyMode | undefined = body.mode;
   const title: string | undefined = body.title;
-  if (!eventTypeId || !mode || !title) {
+  const zipCode: string | undefined = body.zipCode;
+  if (!eventTypeId || !mode || !title || !zipCode) {
     return NextResponse.json(
-      { error: "eventTypeId, mode, and title are required" },
+      { error: "eventTypeId, mode, title, and zipCode are required" },
       { status: 400 },
     );
   }
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
     eventTypeId,
     mode,
     title,
+    zipCode,
   );
 
   return NextResponse.json(created);

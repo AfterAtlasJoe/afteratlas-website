@@ -106,11 +106,15 @@ considered done.
 
 ### Vendors
 
-Phase 1 vendors are manually seeded (no self-signup/bidding — see spec
-§3). `/checklist/[responseId]` and `/gaps/[responseId]` show up to two
-vendors per relevant category, sorted by `priority`; if a category has no
-vendors, the page falls back to a Yelp search link, per the spec's
-fallback rule.
+Vendor recommendations come from the Yelp Fusion API (`src/lib/yelp.ts`),
+not the static `Vendor` table — searched by `VendorCategory.name` and the
+zip code collected on the "name this survey" screen at the very start
+(`NewSurveyForm`, stored as `SurveyResponse.zipCode`). `/checklist/[responseId]`,
+`/gaps/[responseId]`, and `/vendors/[category]` all render through the same
+`<VendorRecommendations>` component, which falls back to a plain "search
+Yelp yourself" link whenever there's no zip code, no `YELP_API_KEY`, or the
+API call fails for any reason — vendor lookups never break the page. Set
+`YELP_API_KEY` in the environment to enable real results (see `.env.example`).
 
 ### Known gaps vs. the page-structure blurb in spec §2
 
