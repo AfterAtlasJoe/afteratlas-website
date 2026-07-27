@@ -75,9 +75,13 @@ model TopicBucket {
   eventType   EventType  @relation(fields: [eventTypeId], references: [id])
   mode        SurveyMode
 
-  name       String
-  order      Int
-  categories String[]
+  name        String
+  /// One-sentence, always-visible summary of what's inside — shown under
+  /// the bucket name in the picker instead of a hover tooltip, so it
+  /// works the same on mobile (no hover) as desktop.
+  description String
+  order       Int
+  categories  String[]
 
   @@index([eventTypeId, mode])
   @@map("topic_buckets")

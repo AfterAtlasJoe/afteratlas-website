@@ -35,24 +35,32 @@ const WA_JURISDICTION_UID_RANGE: [number, number] = [5, 40];
  * just "Getting Started", the mandatory intro) is never filtered by
  * selection — see `advanceSurvey`'s category-skip logic.
  */
-const TOPIC_BUCKETS: { name: string; order: number; categories: string[] }[] = [
+const TOPIC_BUCKETS: { name: string; description: string; order: number; categories: string[] }[] = [
   {
     name: "Legal & Estate",
+    description:
+      "Wills, guardianship for any minor children, and the paperwork needed to open probate.",
     order: 0,
     categories: ["Guardianship", "Last wishes", "Filing Paperwork"],
   },
   {
     name: "Money & Property",
+    description:
+      "Bank accounts, bills, the house and other belongings, a business, and benefits like life insurance or Social Security.",
     order: 1,
     categories: ["Finances", "Expenses", "Possessions", "Business", "Post-Death Benefits"],
   },
   {
     name: "People & Notifications",
+    description:
+      "Letting family and friends know, notifying an employer, and handling email, social media, and other online accounts.",
     order: 2,
     categories: ["Notifying Loved Ones", "Employment", "Digital Assets"],
   },
   {
     name: "Wrapping Up & You",
+    description:
+      "Odds and ends like subscriptions and IDs to cancel, plus support for taking care of yourself through this.",
     order: 3,
     categories: ["Loose Ends", "Self Care"],
   },
@@ -270,10 +278,16 @@ export async function seedXlsx() {
         eventTypeId: EVENT_TYPE_ID,
         mode: MODE,
         name: bucket.name,
+        description: bucket.description,
         order: bucket.order,
         categories: bucket.categories,
       },
-      update: { name: bucket.name, order: bucket.order, categories: bucket.categories },
+      update: {
+        name: bucket.name,
+        description: bucket.description,
+        order: bucket.order,
+        categories: bucket.categories,
+      },
     });
   }
   console.log(`Seeded ${TOPIC_BUCKETS.length} topic buckets`);

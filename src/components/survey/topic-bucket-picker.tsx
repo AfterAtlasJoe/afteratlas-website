@@ -5,6 +5,8 @@ import { useState } from "react";
 export type TopicBucketData = {
   id: string;
   name: string;
+  /** One-sentence summary of what's inside, always visible (not a hover tooltip) so it works the same on mobile. */
+  description: string;
   categories: string[];
 };
 
@@ -71,9 +73,7 @@ export function TopicBucketPicker({
             />
             <span className="flex flex-col gap-0.5">
               <span className="font-medium">{bucket.name}</span>
-              <span className="text-xs text-zinc-500">
-                {bucket.categories.join(", ")}
-              </span>
+              <span className="text-xs text-zinc-500">{bucket.description}</span>
             </span>
           </label>
         ))}
