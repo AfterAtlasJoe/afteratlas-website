@@ -387,6 +387,11 @@ model SurveyResponse {
   /// For resume: the question the user was last on.
   lastQuestionId String?
 
+  /// Question ids visited so far, in first-encountered order. Drives the
+  /// "back" button and the section nav only showing categories the user
+  /// has actually reached (not the full category list up front).
+  history String[] @default([])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

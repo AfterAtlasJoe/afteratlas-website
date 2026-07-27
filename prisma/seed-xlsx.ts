@@ -192,10 +192,56 @@ export async function seedXlsx() {
     return vendorCategoriesByNumber.get(num)?.slug ?? null;
   }
 
-  // --- Checklist items (created before Questions so skipIfChecklistItemShownId can reference them) ---
+  // --- Delete stale rows: content no longer present in this import ------
+  // Seeding is otherwise purely additive (upsert), so rows removed from a
+  // prior version of the spreadsheet — or the old illustrative sample data
+  // this import replaced — would otherwise linger in the database forever
+  // (e.g. a stray "Home & Property" category from data this import no
+  // longer produces).
   const checklistItemSlugs = new Set(
     rows.map((r) => r.info_checklist_item).filter(Boolean),
   );
+  const expectedQuestionIds = new Set(rows.map((r) => questionId(r.uid)));
+
+  const staleChecklistItemIds = (
+    await prisma.checklistItem.findMany({
+      where: { eventTypeId: EVENT_TYPE_ID, id: { notIn: [...checklistItemSlugs] } },
+      select: { id: true },
+    })
+  ).map((c) => c.id);
+  const staleQuestionIds = (
+    await prisma.question.findMany({
+      where: { eventTypeId: EVENT_TYPE_ID, mode: MODE, id: { notIn: [...expectedQuestionIds] } },
+      select: { id: true },
+    })
+  ).map((q) => q.id);
+
+  // Null out references that would otherwise block deletion (both FKs are
+  // Restrict, not Cascade — safe to clear since every surviving row on
+  // both sides gets its real value re-upserted below regardless).
+  if (staleChecklistItemIds.length > 0) {
+    await prisma.question.updateMany({
+      where: { skipIfChecklistItemShownId: { in: staleChecklistItemIds } },
+      data: { skipIfChecklistItemShownId: null },
+    });
+  }
+  if (staleQuestionIds.length > 0) {
+    await prisma.questionBranch.updateMany({
+      where: { nextQuestionId: { in: staleQuestionIds } },
+      data: { nextQuestionId: null },
+    });
+  }
+
+  if (staleQuestionIds.length > 0) {
+    await prisma.question.deleteMany({ where: { id: { in: staleQuestionIds } } });
+    console.log(`Deleted ${staleQuestionIds.length} stale questions`);
+  }
+  if (staleChecklistItemIds.length > 0) {
+    await prisma.checklistItem.deleteMany({ where: { id: { in: staleChecklistItemIds } } });
+    console.log(`Deleted ${staleChecklistItemIds.length} stale checklist items`);
+  }
+
+  // --- Checklist items (created before Questions so skipIfChecklistItemShownId can reference them) ---
   for (const row of rows) {
     if (!row.info_checklist_item) continue;
     const { cleaned, links } = extractLinks(row.description || "");

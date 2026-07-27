@@ -39,6 +39,7 @@ export async function createSurveyResponse(
       title,
       answers: {},
       lastQuestionId: firstQuestion?.id ?? null,
+      history: firstQuestion ? [firstQuestion.id] : [],
     },
   });
 }

@@ -44,8 +44,11 @@ function parseAnswerPairs(body: unknown): AnswerPair[] | null {
 }
 
 /**
- * Three things happen through this route, distinguished by request body shape:
+ * Four things happen through this route, distinguished by request body shape:
  * - { title } — renames the response (used from the dashboard).
+ * - { navigateTo } — moves to a question already in `history` (the "Back"
+ *   button, or clicking an already-revealed section) without touching
+ *   answers or history itself.
  * - { questionId, answerOptionId } — records one answer and advances.
  * - { answers: [{ questionId, answerOptionId }, ...] } — records a batch of
  *   answers at once (a `multiselect_group` screen submitting all its rows
@@ -82,12 +85,27 @@ export async function PATCH(
     return NextResponse.json(updated);
   }
 
+  if (typeof body.navigateTo === "string") {
+    const history = response.history;
+    if (!history.includes(body.navigateTo)) {
+      return NextResponse.json(
+        { error: "navigateTo must be a question already in history" },
+        { status: 400 },
+      );
+    }
+    const updated = await prisma.surveyResponse.update({
+      where: { id },
+      data: { lastQuestionId: body.navigateTo },
+    });
+    return NextResponse.json(updated);
+  }
+
   const pairs = parseAnswerPairs(body);
   if (!pairs) {
     return NextResponse.json(
       {
         error:
-          "Provide either { title }, { questionId, answerOptionId }, or { answers: [...] }",
+          "Provide either { title }, { navigateTo }, { questionId, answerOptionId }, or { answers: [...] }",
       },
       { status: 400 },
     );
@@ -129,12 +147,18 @@ export async function PATCH(
     triggeredChecklistItemIds,
   );
 
+  const history =
+    nextQuestionId && !response.history.includes(nextQuestionId)
+      ? [...response.history, nextQuestionId]
+      : response.history;
+
   const updated = await prisma.surveyResponse.update({
     where: { id },
     data: {
       answers,
       lastQuestionId: nextQuestionId,
       status: nextQuestionId ? "in_progress" : "completed",
+      history,
     },
   });
 
