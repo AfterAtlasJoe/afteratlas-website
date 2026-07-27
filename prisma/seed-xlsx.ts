@@ -48,6 +48,29 @@ const ANSWER_OPTION_TARGET_FIXES: Record<string, number> = {
   "147:No": 151, // Possessions "not enough for an estate sale": same splice as 149/150
 };
 
+/**
+ * Some multiselect_group members ask about a less-common situation (a
+ * "check this if you're unsure" item) and already carry a guide link in
+ * their own `description` — but, unlike most bool rows, they don't route
+ * to a separate "info" row, so nothing ever creates a ChecklistItem for
+ * them and the guide link never makes it onto the final checklist. This
+ * gives each one a checklist entry (title + the same description/link,
+ * reusing authored content rather than writing new copy) and wires it to
+ * fire on "Yes" or "Unknown" — either means "tell me more." The pilot
+ * category is Possessions' `possessions_other` group; the mechanism
+ * (see the PATCH route's `newlyTriggeredItems` diff and
+ * <TriggeredItemsSummary>) is generic to any multiselect_group answer
+ * that triggers a checklist item, not specific to these six rows.
+ */
+const RARE_TOPIC_CHECKLIST_ITEMS: Record<number, { id: string; title: string }> = {
+  141: { id: "wa_safety-deposit-box-info", title: "Safety Deposit Box" },
+  142: { id: "wa_mineral-rights-info", title: "Mineral Rights" },
+  143: { id: "wa_timeshares-info", title: "Timeshares" },
+  144: { id: "wa_personal-collections-info", title: "Personal Collections" },
+  145: { id: "wa_intellectual-property-info", title: "Intellectual Property" },
+  146: { id: "wa_boats-info", title: "Boats" },
+};
+
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
@@ -198,9 +221,10 @@ export async function seedXlsx() {
   // this import replaced — would otherwise linger in the database forever
   // (e.g. a stray "Home & Property" category from data this import no
   // longer produces).
-  const checklistItemSlugs = new Set(
-    rows.map((r) => r.info_checklist_item).filter(Boolean),
-  );
+  const checklistItemSlugs = new Set([
+    ...rows.map((r) => r.info_checklist_item).filter(Boolean),
+    ...Object.values(RARE_TOPIC_CHECKLIST_ITEMS).map((item) => item.id),
+  ]);
   const expectedQuestionIds = new Set(rows.map((r) => questionId(r.uid)));
 
   const staleChecklistItemIds = (
@@ -262,6 +286,30 @@ export async function seedXlsx() {
         category: categoryFromTopic(row.topic),
         relatedLinks: links,
         vendorCategoryId: vendorCategoryIdFor(row),
+      },
+    });
+  }
+  for (const [uidStr, item] of Object.entries(RARE_TOPIC_CHECKLIST_ITEMS)) {
+    const row = byUid.get(Number(uidStr));
+    if (!row) continue;
+    const { cleaned, links } = extractLinks(row.description || "");
+    await prisma.checklistItem.upsert({
+      where: { id: item.id },
+      create: {
+        id: item.id,
+        eventTypeId: EVENT_TYPE_ID,
+        title: item.title,
+        description: cleaned,
+        category: categoryFromTopic(row.topic),
+        relatedLinks: links,
+        vendorCategoryId: null,
+      },
+      update: {
+        title: item.title,
+        description: cleaned,
+        category: categoryFromTopic(row.topic),
+        relatedLinks: links,
+        vendorCategoryId: null,
       },
     });
   }
@@ -390,6 +438,42 @@ export async function seedXlsx() {
     }
   }
   console.log(`Seeded ${branchCount} question branches and ${triggerCount} checklist item triggers`);
+
+  // --- Rare-topic checklist triggers --------------------------------------
+  // Unlike the general case above, these fire directly off the row's own
+  // "Yes"/"Unknown" answer rather than off a separate target row's
+  // info_checklist_item — see RARE_TOPIC_CHECKLIST_ITEMS.
+  let rareTopicTriggerCount = 0;
+  for (const [uidStr, item] of Object.entries(RARE_TOPIC_CHECKLIST_ITEMS)) {
+    const row = byUid.get(Number(uidStr));
+    if (!row) continue;
+    const options = parseAnswerOptions(row.answer_options);
+    const tellMeMoreIndexes = options
+      .map((option, index) => ({ label: option.label, index }))
+      .filter(({ label }) => label === "Yes" || label === "Unknown")
+      .map(({ index }) => index);
+
+    for (const index of tellMeMoreIndexes) {
+      const answerOptionId = `${questionId(row.uid)}-opt-${index}`;
+      await prisma.checklistItemTrigger.upsert({
+        where: {
+          checklistItemId_questionId_answerOptionId: {
+            checklistItemId: item.id,
+            questionId: questionId(row.uid),
+            answerOptionId,
+          },
+        },
+        create: {
+          checklistItemId: item.id,
+          questionId: questionId(row.uid),
+          answerOptionId,
+        },
+        update: {},
+      });
+      rareTopicTriggerCount++;
+    }
+  }
+  console.log(`Seeded ${rareTopicTriggerCount} rare-topic checklist item triggers`);
 
   await prisma.$disconnect();
 }

@@ -52,7 +52,11 @@ function parseAnswerPairs(body: unknown): AnswerPair[] | null {
  * - { questionId, answerOptionId } — records one answer and advances.
  * - { answers: [{ questionId, answerOptionId }, ...] } — records a batch of
  *   answers at once (a `multiselect_group` screen submitting all its rows
- *   together), then advances past the last one.
+ *   together), then advances past the last one. The response also carries
+ *   `newlyTriggeredItems`: any ChecklistItem this batch triggered that
+ *   wasn't already triggered before it. A multiselect batch has no
+ *   per-question "info" screen the way the one-at-a-time flow does, so
+ *   the client shows these as a one-screen summary before advancing.
  * Mode-agnostic either way — the branching engine (src/lib/survey-engine.ts)
  * never branches on event type.
  */
@@ -128,7 +132,12 @@ export async function PATCH(
     }),
   ]);
 
-  const answers: SurveyAnswers = { ...((response.answers as SurveyAnswers) ?? {}) };
+  const answersBefore: SurveyAnswers = (response.answers as SurveyAnswers) ?? {};
+  const triggeredBefore = new Set(
+    resolveTriggeredItems(checklistItems, answersBefore).map((item) => item.id),
+  );
+
+  const answers: SurveyAnswers = { ...answersBefore };
   for (const pair of pairs) {
     answers[pair.questionId] = pair.answerOptionId;
   }
@@ -136,6 +145,23 @@ export async function PATCH(
   const triggeredChecklistItemIds = new Set(
     resolveTriggeredItems(checklistItems, answers).map((item) => item.id),
   );
+
+  // Multiselect_group screens answer several questions in one batch with
+  // no per-question "info" screen in between (unlike the normal
+  // one-at-a-time flow, where a triggered item's own info screen already
+  // surfaces it). Surface anything newly triggered by this batch as a
+  // one-screen summary before advancing, so it doesn't pass by unseen.
+  const newlyTriggeredItems =
+    pairs.length > 1
+      ? checklistItems
+          .filter((item) => triggeredChecklistItemIds.has(item.id) && !triggeredBefore.has(item.id))
+          .map((item) => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            relatedLinks: item.relatedLinks,
+          }))
+      : [];
 
   const lastPair = pairs[pairs.length - 1];
   const nextQuestionId = advanceSurvey(
@@ -162,7 +188,7 @@ export async function PATCH(
     },
   });
 
-  return NextResponse.json(updated);
+  return NextResponse.json({ ...updated, newlyTriggeredItems });
 }
 
 export async function DELETE(

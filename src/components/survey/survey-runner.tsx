@@ -6,6 +6,10 @@ import { useRouter } from "next/navigation";
 import { MultiselectGroupCard } from "./multiselect-group-card";
 import { QuestionCard } from "./question-card";
 import { SectionNav } from "./section-nav";
+import {
+  TriggeredItemsSummary,
+  type TriggeredItemPreview,
+} from "./triggered-items-summary";
 import type { QuestionData } from "./types";
 
 type SurveyRunnerProps = {
@@ -45,6 +49,13 @@ export function SurveyRunner({
   );
   const [history, setHistory] = useState<string[]>(initialHistory);
   const [submitting, setSubmitting] = useState(false);
+  const [newlyTriggeredItems, setNewlyTriggeredItems] = useState<
+    TriggeredItemPreview[] | null
+  >(null);
+  const [pendingAdvance, setPendingAdvance] = useState<{
+    nextQuestionId: string | null;
+    completed: boolean;
+  } | null>(null);
 
   const orderedQuestions = useMemo(
     () => questions.slice().sort((a, b) => a.order - b.order),
@@ -126,7 +137,13 @@ export function SurveyRunner({
       const updated = await response.json();
       setAnswers(updated.answers);
       setHistory(updated.history);
-      if (updated.status === "completed" || !updated.lastQuestionId) {
+      const completed = updated.status === "completed" || !updated.lastQuestionId;
+      if (updated.newlyTriggeredItems?.length > 0) {
+        setNewlyTriggeredItems(updated.newlyTriggeredItems);
+        setPendingAdvance({ nextQuestionId: updated.lastQuestionId, completed });
+        return;
+      }
+      if (completed) {
         router.push(resultsHref);
         return;
       }
@@ -136,9 +153,26 @@ export function SurveyRunner({
     }
   }
 
+  /** Dismisses the "a few things to note" summary and performs the advance it was deferring. */
+  function handleContinueFromSummary() {
+    setNewlyTriggeredItems(null);
+    if (!pendingAdvance) return;
+    const { nextQuestionId, completed } = pendingAdvance;
+    setPendingAdvance(null);
+    if (completed) {
+      router.push(resultsHref);
+      return;
+    }
+    if (nextQuestionId) {
+      setCurrentQuestionId(nextQuestionId);
+    }
+  }
+
   /** Moves to a question already in history — the Back button, or clicking an already-revealed section — without touching answers. */
   async function navigateTo(questionId: string) {
     if (submitting || questionId === currentQuestionId) return;
+    setNewlyTriggeredItems(null);
+    setPendingAdvance(null);
     setSubmitting(true);
     try {
       const response = await fetch(`/api/survey-responses/${responseId}`, {
@@ -197,7 +231,12 @@ export function SurveyRunner({
             ← Back
           </button>
         ) : null}
-        {currentGroupQuestions ? (
+        {newlyTriggeredItems ? (
+          <TriggeredItemsSummary
+            items={newlyTriggeredItems}
+            onContinue={handleContinueFromSummary}
+          />
+        ) : currentGroupQuestions ? (
           <MultiselectGroupCard
             questions={currentGroupQuestions}
             initialAnswers={answers}

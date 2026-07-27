@@ -83,7 +83,13 @@ the specific rows that currently use them:
   detects a contiguous run of questions sharing a group value and
   renders them as one "select all that apply" screen
   (`MultiselectGroupCard`), submitting all answers in a single batch via
-  `PATCH /api/survey-responses/[id]` (`{ answers: [...] }`).
+  `PATCH /api/survey-responses/[id]` (`{ answers: [...] }`). If that batch
+  triggers a `ChecklistItem` that wasn't already triggered (e.g. checking
+  a less-common item in `possessions_other` like "mineral rights"), the
+  route returns it under `newlyTriggeredItems` and the client shows it as
+  a one-screen "a few things to note" summary (`TriggeredItemsSummary`)
+  before advancing — the only place in the survey a triggered item is
+  surfaced without its own dedicated "info" screen.
 
 `Jurisdiction` (`wa` fully populated, `general` a stub with no content
 yet) backs the nullable `Question.jurisdictionId` — set only on the
