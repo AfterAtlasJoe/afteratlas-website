@@ -289,6 +289,7 @@ export async function seedXlsx() {
         order: row.uid,
         skipIfChecklistItemShownId: row.skip_if_already_shown || null,
         multiselectGroup: row.multiselect_group || null,
+        vendorCategoryId: vendorCategoryIdFor(row),
       },
       update: {
         jurisdictionId: isWaSpecific ? JURISDICTION_ID : null,
@@ -298,6 +299,7 @@ export async function seedXlsx() {
         order: row.uid,
         skipIfChecklistItemShownId: row.skip_if_already_shown || null,
         multiselectGroup: row.multiselect_group || null,
+        vendorCategoryId: vendorCategoryIdFor(row),
       },
     });
 

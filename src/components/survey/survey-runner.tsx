@@ -18,6 +18,8 @@ type SurveyRunnerProps = {
   initialCurrentQuestionId: string;
   /** Question ids visited so far, in first-encountered order. Drives the Back button and which sections have been revealed in the nav. */
   initialHistory: string[];
+  /** Used to scope inline Yelp vendor recommendations on questions that reference them directly. Null if not collected (e.g. a pre-existing response). */
+  zipCode: string | null;
 };
 
 /**
@@ -33,6 +35,7 @@ export function SurveyRunner({
   initialAnswers,
   initialCurrentQuestionId,
   initialHistory,
+  zipCode,
 }: SurveyRunnerProps) {
   const router = useRouter();
   const [answers, setAnswers] =
@@ -203,9 +206,11 @@ export function SurveyRunner({
           />
         ) : currentQuestion ? (
           <QuestionCard
+            key={currentQuestion.id}
             question={currentQuestion}
             selectedAnswerOptionId={answers[currentQuestion.id]}
             disabled={submitting}
+            zipCode={zipCode}
             onAnswer={(answerOptionId) =>
               submitAnswers([{ questionId: currentQuestion.id, answerOptionId }])
             }

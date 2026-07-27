@@ -65,7 +65,10 @@ export async function SurveyPage({
   const questions = await prisma.question.findMany({
     where: { eventTypeId, mode },
     orderBy: { order: "asc" },
-    include: { answerOptions: { orderBy: { order: "asc" } } },
+    include: {
+      answerOptions: { orderBy: { order: "asc" } },
+      vendorCategory: true,
+    },
   });
 
   const questionData: QuestionData[] = questions.map((q) => ({
@@ -76,6 +79,9 @@ export async function SurveyPage({
     section: q.section,
     order: q.order,
     multiselectGroup: q.multiselectGroup,
+    vendorCategory: q.vendorCategory
+      ? { slug: q.vendorCategory.slug, name: q.vendorCategory.name }
+      : null,
     answerOptions: q.answerOptions,
   }));
 
@@ -94,6 +100,7 @@ export async function SurveyPage({
       initialAnswers={(response.answers as Record<string, string>) ?? {}}
       initialCurrentQuestionId={response.lastQuestionId}
       initialHistory={initialHistory}
+      zipCode={response.zipCode}
     />
   );
 }

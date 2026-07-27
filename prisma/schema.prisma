@@ -94,6 +94,12 @@ model Question {
   /// Presentational grouping only — not a data relationship.
   multiselectGroup String?
 
+  /// Set when this question's own copy references vendor recommendations
+  /// directly (e.g. "below is a list of probate lawyers near you") rather
+  /// than only surfacing them later via a triggered ChecklistItem/Gap.
+  vendorCategoryId String?
+  vendorCategory   VendorCategory? @relation(fields: [vendorCategoryId], references: [id])
+
   answerOptions AnswerOption[]
 
   branchesFrom QuestionBranch[] @relation("BranchQuestion")
@@ -256,6 +262,7 @@ model VendorCategory {
   vendors        Vendor[]
   checklistItems ChecklistItem[]
   gaps           Gap[]
+  questions      Question[]
 
   @@map("vendor_categories")
 }
