@@ -85,11 +85,14 @@ the specific rows that currently use them:
   (`MultiselectGroupCard`), submitting all answers in a single batch via
   `PATCH /api/survey-responses/[id]` (`{ answers: [...] }`). If that batch
   triggers a `ChecklistItem` that wasn't already triggered (e.g. checking
-  a less-common item in `possessions_other` like "mineral rights"), the
-  route returns it under `newlyTriggeredItems` and the client shows it as
-  a one-screen "a few things to note" summary (`TriggeredItemsSummary`)
-  before advancing — the only place in the survey a triggered item is
-  surfaced without its own dedicated "info" screen.
+  a less-common item like "mineral rights" in Possessions' `possessions_other`
+  group, or "brokerage accounts" in Finances' `finances_accounts_insurance`
+  group — the two multiselect_groups in the source data with this exact
+  shape, out of five total), the route returns it under
+  `newlyTriggeredItems` and the client shows it as a one-screen "a few
+  things to note" summary (`TriggeredItemsSummary`) before advancing —
+  the only place in the survey a triggered item is surfaced without its
+  own dedicated "info" screen.
 
 `Jurisdiction` (`wa` fully populated, `general` a stub with no content
 yet) backs the nullable `Question.jurisdictionId` — set only on the

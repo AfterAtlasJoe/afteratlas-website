@@ -128,19 +128,32 @@ const ANSWER_OPTION_TARGET_FIXES: Record<string, number> = {
  * them and the guide link never makes it onto the final checklist. This
  * gives each one a checklist entry (title + the same description/link,
  * reusing authored content rather than writing new copy) and wires it to
- * fire on "Yes" or "Unknown" — either means "tell me more." The pilot
- * category is Possessions' `possessions_other` group; the mechanism
- * (see the PATCH route's `newlyTriggeredItems` diff and
- * <TriggeredItemsSummary>) is generic to any multiselect_group answer
- * that triggers a checklist item, not specific to these six rows.
+ * fire on "Yes" or "Unknown" — either means "tell me more." Applies
+ * wherever the source data has this exact shape (checked every
+ * multiselect_group; only these two matched — the other three already
+ * route each "Yes" to their own dedicated info screen/ChecklistItem the
+ * normal way). The mechanism itself (see the PATCH route's
+ * `newlyTriggeredItems` diff and <TriggeredItemsSummary>) is generic to
+ * any multiselect_group answer that triggers a checklist item, not
+ * specific to these rows or categories.
  */
 const RARE_TOPIC_CHECKLIST_ITEMS: Record<number, { id: string; title: string }> = {
+  // possessions_other
   141: { id: "wa_safety-deposit-box-info", title: "Safety Deposit Box" },
   142: { id: "wa_mineral-rights-info", title: "Mineral Rights" },
   143: { id: "wa_timeshares-info", title: "Timeshares" },
   144: { id: "wa_personal-collections-info", title: "Personal Collections" },
   145: { id: "wa_intellectual-property-info", title: "Intellectual Property" },
   146: { id: "wa_boats-info", title: "Boats" },
+  // finances_accounts_insurance
+  105: { id: "wa_brokerage-accounts-info", title: "Brokerage Accounts" },
+  106: { id: "wa_retirement-plans-info", title: "Retirement Plans" },
+  107: { id: "wa_bonds-treasury-notes-info", title: "Bonds & Treasury Notes" },
+  108: { id: "wa_annuities-info", title: "Annuities" },
+  109: { id: "wa_credit-card-insurance-info", title: "Credit Card Insurance" },
+  110: { id: "wa_property-insurance-info", title: "Property Insurance" },
+  111: { id: "wa_auto-insurance-info", title: "Auto Insurance" },
+  112: { id: "wa_medical-insurance-info", title: "Medical Insurance" },
 };
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
