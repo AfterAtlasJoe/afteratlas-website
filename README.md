@@ -25,7 +25,7 @@ npm install
 cp .env.example .env   # then fill in DATABASE_URL and AUTH_SECRET
 
 npm run db:migrate      # applies prisma/migrations
-npm run db:seed         # loads prisma/seed-data/*.json (death content)
+npm run db:seed         # loads prisma/seed-data/*.json, then the WA spreadsheet import
 npm run dev
 ```
 
@@ -57,13 +57,52 @@ only differs by `mode` and result path — never by event type.
 
 ### Seed content (`prisma/seed-data/*.json`, `prisma/seed.ts`)
 
-Each event type is one JSON file (currently just `death.json`) describing
-its questions, branches, checklist items/gaps + triggers, vendor
-categories, vendors, and articles. `prisma/seed.ts` loads every file in
-the directory generically — adding `divorce.json` requires no script
-changes. Question `order` is a single global sequence across the whole
+Each event type is one JSON file (currently just `death.json`, holding
+the hand-authored `planning`-mode content) describing its questions,
+branches, checklist items/gaps + triggers, vendor categories, vendors,
+and articles. `prisma/seed.ts` loads every file in the directory
+generically — adding `divorce.json` requires no script changes.
+Question `order` is a single global sequence across the whole
 event-type + mode question set (not scoped per category — `category` is
 only a display label for the section nav).
+
+### WA spreadsheet import (`prisma/seed-xlsx.ts`, spec §6)
+
+The real `death`/`wa`/`post_event` content (177 rows) comes from
+`After_Atlas_July26 2026_Claude updated.xlsx`, parsed and upserted by
+`prisma/seed-xlsx.ts` (chained after `seed.ts` in `prisma.config.ts`'s
+seed command). Two engine conventions from the spreadsheet are
+implemented generically in `src/lib/survey-engine.ts` — not hardcoded to
+the specific rows that currently use them:
+
+- **`skip_if_already_shown`** (`Question.skipIfChecklistItemShownId`):
+  `advanceSurvey` treats any upcoming question as skipped if the
+  `ChecklistItem` it names was already triggered earlier in the same
+  session, walking forward to whatever comes next.
+- **`multiselect_group`** (`Question.multiselectGroup`): `SurveyRunner`
+  detects a contiguous run of questions sharing a group value and
+  renders them as one "select all that apply" screen
+  (`MultiselectGroupCard`), submitting all answers in a single batch via
+  `PATCH /api/survey-responses/[id]` (`{ answers: [...] }`).
+
+`Jurisdiction` (`wa` fully populated, `general` a stub with no content
+yet) backs the nullable `Question.jurisdictionId` — set only on the
+will/intestate-succession intro sequence (uid 5–40), matching spec's
+"most of the survey is jurisdiction-agnostic" guidance.
+
+**Data-quality note:** the source spreadsheet's own change history shows
+three categories (Guardianship, Employment, Digital Assets) and a
+handful of items added to existing categories, but the links needed to
+splice them into the traversable chain were never added — they'd be
+unreachable by answering questions straight through, only reachable via
+the section-nav category list. `seed-xlsx.ts` documents and applies the
+minimal set of link corrections found by simulating traversal from the
+first question (`ALWAYS_JUMP_TO_FIXES` / `ANSWER_OPTION_TARGET_FIXES`);
+every other authored link is imported untouched. Verified end-to-end
+(automated reachability check against the imported data, 177/177
+questions, zero broken links, plus a full Playwright walkthrough
+including the multiselect and skip mechanics) before this was
+considered done.
 
 ### Vendors
 

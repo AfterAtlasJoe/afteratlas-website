@@ -55,7 +55,7 @@ export default async function GapsPage({
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-12">
       <div>
         <h1 className="text-2xl font-semibold">
-          Your {response.eventType.name} planning gaps
+          {response.title ?? `Your ${response.eventType.name} planning gaps`}
         </h1>
         <p className="text-sm text-zinc-500">
           {triggered.length} gap{triggered.length === 1 ? "" : "s"} found based

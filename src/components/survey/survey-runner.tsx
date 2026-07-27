@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { MultiselectGroupCard } from "./multiselect-group-card";
 import { QuestionCard } from "./question-card";
 import { SectionNav } from "./section-nav";
 import type { QuestionData } from "./types";
@@ -38,13 +39,17 @@ export function SurveyRunner({
   );
   const [submitting, setSubmitting] = useState(false);
 
+  const orderedQuestions = useMemo(
+    () => questions.slice().sort((a, b) => a.order - b.order),
+    [questions],
+  );
   const questionsById = useMemo(
     () => new Map(questions.map((q) => [q.id, q])),
     [questions],
   );
   const categories = useMemo(
-    () => Array.from(new Set(questions.map((q) => q.category))),
-    [questions],
+    () => Array.from(new Set(orderedQuestions.map((q) => q.category))),
+    [orderedQuestions],
   );
   const completedCategories = useMemo(() => {
     const complete = new Set<string>();
@@ -59,17 +64,40 @@ export function SurveyRunner({
 
   const currentQuestion = questionsById.get(currentQuestionId);
 
-  async function handleAnswer(answerOptionId: string) {
-    if (!currentQuestion || submitting) return;
+  /**
+   * If the current question belongs to a `multiselect_group`, gather the
+   * contiguous run of questions sharing that same group (in order) so
+   * they render as one "select all that apply" screen instead of one
+   * question at a time.
+   */
+  const currentGroupQuestions = useMemo(() => {
+    if (!currentQuestion?.multiselectGroup) return null;
+    const startIndex = orderedQuestions.findIndex(
+      (q) => q.id === currentQuestion.id,
+    );
+    if (startIndex === -1) return null;
+    const group = [orderedQuestions[startIndex]];
+    for (let i = startIndex + 1; i < orderedQuestions.length; i++) {
+      if (orderedQuestions[i].multiselectGroup !== currentQuestion.multiselectGroup) {
+        break;
+      }
+      group.push(orderedQuestions[i]);
+    }
+    return group.length > 1 ? group : null;
+  }, [currentQuestion, orderedQuestions]);
+
+  async function submitAnswers(
+    pairs: { questionId: string; answerOptionId: string }[],
+  ) {
+    if (submitting || pairs.length === 0) return;
     setSubmitting(true);
     try {
       const response = await fetch(`/api/survey-responses/${responseId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          questionId: currentQuestion.id,
-          answerOptionId,
-        }),
+        body: JSON.stringify(
+          pairs.length === 1 ? pairs[0] : { answers: pairs },
+        ),
       });
       if (!response.ok) {
         throw new Error("Failed to save answer");
@@ -87,7 +115,9 @@ export function SurveyRunner({
   }
 
   function handleSelectCategory(category: string) {
-    const firstInCategory = questions.find((q) => q.category === category);
+    const firstInCategory = orderedQuestions.find(
+      (q) => q.category === category,
+    );
     if (firstInCategory) {
       setCurrentQuestionId(firstInCategory.id);
     }
@@ -107,12 +137,21 @@ export function SurveyRunner({
         />
       </aside>
       <div>
-        {currentQuestion ? (
+        {currentGroupQuestions ? (
+          <MultiselectGroupCard
+            questions={currentGroupQuestions}
+            initialAnswers={answers}
+            disabled={submitting}
+            onSubmit={submitAnswers}
+          />
+        ) : currentQuestion ? (
           <QuestionCard
             question={currentQuestion}
             selectedAnswerOptionId={answers[currentQuestion.id]}
             disabled={submitting}
-            onAnswer={handleAnswer}
+            onAnswer={(answerOptionId) =>
+              submitAnswers([{ questionId: currentQuestion.id, answerOptionId }])
+            }
           />
         ) : (
           <p className="text-sm text-zinc-500">

@@ -2,9 +2,10 @@ import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getOrCreateSurveyResponse } from "@/lib/survey-responses";
+import { findActiveSurveyResponse } from "@/lib/survey-responses";
 import type { SurveyMode } from "@/generated/prisma/client";
 
+import { NewSurveyForm } from "./new-survey-form";
 import { SurveyRunner } from "./survey-runner";
 import type { QuestionData } from "./types";
 
@@ -41,11 +42,21 @@ export async function SurveyPage({
     notFound();
   }
 
-  const response = await getOrCreateSurveyResponse(
+  const response = await findActiveSurveyResponse(
     session.user.id,
     eventTypeId,
     mode,
   );
+
+  if (!response) {
+    return (
+      <NewSurveyForm
+        eventTypeId={eventTypeId}
+        eventTypeName={eventType.name}
+        mode={mode}
+      />
+    );
+  }
 
   if (response.status === "completed" || !response.lastQuestionId) {
     redirect(`${resultsBasePath}/${response.id}`);
@@ -60,16 +71,18 @@ export async function SurveyPage({
   const questionData: QuestionData[] = questions.map((q) => ({
     id: q.id,
     prompt: q.prompt,
+    description: q.description,
     category: q.category,
     section: q.section,
     order: q.order,
+    multiselectGroup: q.multiselectGroup,
     answerOptions: q.answerOptions,
   }));
 
   return (
     <SurveyRunner
       responseId={response.id}
-      eventTypeName={eventType.name}
+      eventTypeName={response.title ?? eventType.name}
       resultsHref={`${resultsBasePath}/${response.id}`}
       questions={questionData}
       initialAnswers={(response.answers as Record<string, string>) ?? {}}

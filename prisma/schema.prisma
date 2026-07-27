@@ -45,6 +45,18 @@ enum SurveyMode {
   planning
 }
 
+/// A state (or the general/fallback bucket) for the portions of the survey
+/// that are legally state-specific — primarily intestate succession and a
+/// handful of state-specific links/forms.
+model Jurisdiction {
+  id   String @id
+  name String
+
+  questions Question[]
+
+  @@map("jurisdictions")
+}
+
 // ---------------------------------------------------------------------------
 // Survey engine
 // ---------------------------------------------------------------------------
@@ -56,12 +68,31 @@ model Question {
   eventType   EventType  @relation(fields: [eventTypeId], references: [id])
   mode        SurveyMode
 
-  prompt   String
+  /// Null means the question applies in every jurisdiction (the vast
+  /// majority) — set only for jurisdiction-specific content such as
+  /// intestate succession.
+  jurisdictionId String?
+  jurisdiction   Jurisdiction? @relation(fields: [jurisdictionId], references: [id])
+
+  prompt      String
+  /// Optional help text shown alongside the prompt (definitions, resource links).
+  description String?
   /// Grouping label for the section nav (e.g. "Home & Property"). Display only — not a sort key.
-  category String
+  category    String
   /// Global sequence across the whole eventType+mode question set (not scoped to category).
-  order    Int
-  section  String?
+  order       Int
+  section     String?
+
+  /// Skip this question entirely if the referenced ChecklistItem was
+  /// already triggered earlier in the same session (session-level dedup
+  /// for content reachable via more than one path).
+  skipIfChecklistItemShownId String?
+  skipIfChecklistItemShown   ChecklistItem? @relation("QuestionSkipIfShown", fields: [skipIfChecklistItemShownId], references: [id])
+
+  /// Rows sharing a non-empty value here render as one "select all that
+  /// apply" screen instead of sequential single-question screens.
+  /// Presentational grouping only — not a data relationship.
+  multiselectGroup String?
 
   answerOptions AnswerOption[]
 
@@ -138,6 +169,9 @@ model ChecklistItem {
   vendorCategory   VendorCategory? @relation(fields: [vendorCategoryId], references: [id])
 
   triggers ChecklistItemTrigger[]
+
+  /// Questions that should be skipped once this item has already been triggered this session.
+  skippedByQuestions Question[] @relation("QuestionSkipIfShown")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -341,6 +375,9 @@ model SurveyResponse {
   eventTypeId String
   eventType   EventType  @relation(fields: [eventTypeId], references: [id])
   mode        SurveyMode
+
+  /// User-chosen name, set when starting the survey and editable later from the dashboard.
+  title String?
 
   /// question_id -> answer_option_id
   answers Json @default("{}")

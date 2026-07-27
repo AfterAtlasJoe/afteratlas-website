@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { SurveyResponseCard } from "@/components/dashboard/survey-response-card";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export default async function DashboardPage() {
   const responses = await prisma.surveyResponse.findMany({
     where: { userId: session.user.id },
     include: { eventType: true },
-    orderBy: { updatedAt: "desc" },
+    orderBy: { createdAt: "desc" },
   });
 
   return (
@@ -49,23 +50,25 @@ export default async function DashboardPage() {
                   ? `/${resultsPath}/${response.id}`
                   : `/${resumePath}/${response.eventTypeId}`;
               return (
-                <li
+                <SurveyResponseCard
                   key={response.id}
-                  className="flex items-center justify-between rounded-lg border border-black/10 p-4 dark:border-white/10"
-                >
-                  <div>
-                    <p className="font-medium">{response.eventType.name}</p>
-                    <p className="text-xs text-zinc-500">
-                      {response.mode === "post_event"
-                        ? "Post-event checklist"
-                        : "Planning gap report"}{" "}
-                      &middot; {response.status.replace("_", " ")}
-                    </p>
-                  </div>
-                  <Link href={href} className="text-sm underline">
-                    {response.status === "completed" ? "View" : "Resume"}
-                  </Link>
-                </li>
+                  id={response.id}
+                  title={response.title ?? response.eventType.name}
+                  subtitle={`${
+                    response.mode === "post_event"
+                      ? "Post-event checklist"
+                      : "Planning gap report"
+                  } · ${response.status.replace("_", " ")}`}
+                  createdAt={response.createdAt.toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                  href={href}
+                  actionLabel={response.status === "completed" ? "View" : "Resume"}
+                />
               );
             })}
           </ul>
