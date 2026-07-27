@@ -1,5 +1,3 @@
-import "dotenv/config";
-
 import { join } from "node:path";
 
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -13,7 +11,10 @@ import { PrismaClient } from "../src/generated/prisma/client";
  * reference). Generic over the column conventions it implements
  * (skip_if_already_shown, multiselect_group) — nothing here is
  * hardcoded to which specific rows use them. Re-running is safe
- * (everything is upserted).
+ * (everything is upserted). Called from prisma/seed.ts (the single
+ * entry point Prisma's seed runner invokes — it doesn't run the
+ * configured command through a shell, so chaining two scripts with
+ * `&&` silently only runs the first one).
  */
 
 const XLSX_PATH = join(
@@ -114,7 +115,7 @@ function extractLinks(text: string): { cleaned: string; links: string[] } {
   return { cleaned, links };
 }
 
-async function main() {
+export async function seedXlsx() {
   const rows = readRows();
   const byUid = new Map(rows.map((r) => [r.uid, r]));
   const allUids = rows.map((r) => r.uid).sort((a, b) => a - b);
@@ -341,14 +342,6 @@ async function main() {
     }
   }
   console.log(`Seeded ${branchCount} question branches and ${triggerCount} checklist item triggers`);
-}
 
-main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
-  .catch(async (error) => {
-    console.error(error);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
+  await prisma.$disconnect();
+}
