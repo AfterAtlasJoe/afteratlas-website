@@ -374,6 +374,13 @@ model User {
   emailVerified DateTime?
   image         String?
 
+  /// Set the moment the user accepts the "organizational tool, not
+  /// professional advice" disclaimer — at registration for new accounts,
+  /// or via the /disclaimer gate for accounts created before this existed.
+  /// Null means not yet accepted; every protected page checks this before
+  /// rendering (see src/lib/disclaimer.ts).
+  disclaimerAcceptedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

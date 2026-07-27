@@ -3,6 +3,8 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 
+import { DISCLAIMER_TEXT } from "@/lib/disclaimer-text";
+
 export function RegisterForm({ callbackUrl }: { callbackUrl: string }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -16,11 +18,12 @@ export function RegisterForm({ callbackUrl }: { callbackUrl: string }) {
     const email = formData.get("email");
     const password = formData.get("password");
     const name = formData.get("name");
+    const disclaimerAccepted = formData.get("disclaimerAccepted") === "on";
 
     const response = await fetch("/api/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, name }),
+      body: JSON.stringify({ email, password, name, disclaimerAccepted }),
     });
 
     if (!response.ok) {
@@ -71,6 +74,13 @@ export function RegisterForm({ callbackUrl }: { callbackUrl: string }) {
           minLength={8}
           className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10 dark:bg-transparent"
         />
+      </label>
+      <div className="flex max-h-32 flex-col gap-2 overflow-y-auto whitespace-pre-line rounded-md border border-black/10 p-3 text-xs text-zinc-600 dark:border-white/10 dark:text-zinc-400">
+        {DISCLAIMER_TEXT}
+      </div>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" name="disclaimerAccepted" required className="mt-1" />
+        I understand and agree.
       </label>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <button

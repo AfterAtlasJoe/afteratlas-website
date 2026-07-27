@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { requireDisclaimerAccepted } from "@/lib/disclaimer";
 import {
   groupByCategory,
   resolveTriggeredItems,
@@ -24,6 +25,7 @@ export default async function ChecklistPage({
   if (!session?.user?.id) {
     redirect(`/login?callbackUrl=${encodeURIComponent(`/checklist/${responseId}`)}`);
   }
+  await requireDisclaimerAccepted(session.user.id, `/checklist/${responseId}`);
 
   const response = await prisma.surveyResponse.findUnique({
     where: { id: responseId },

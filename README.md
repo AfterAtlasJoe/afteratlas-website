@@ -215,6 +215,25 @@ an exact countdown — `skip_if_already_shown` and branch-based skips mean
 some counted questions will never actually be asked, so it may not
 reach 100% even once nothing's left.
 
+### Disclaimer / liability gate
+
+Every protected page (`/dashboard`, `/survey/[eventType]`, `/plan/[eventType]`,
+`/checklist/[responseId]`, `/gaps/[responseId]`) calls
+`requireDisclaimerAccepted(userId, callbackPath)` (`src/lib/disclaimer.ts`)
+right after the existing session check. It redirects to `/disclaimer` if
+`User.disclaimerAcceptedAt` is unset, and back to `callbackPath` once
+accepted. New accounts accept the same text as a required checkbox during
+registration (sets the timestamp immediately); pre-existing accounts get
+routed through `/disclaimer` the first time they hit a gated page. The
+disclaimer copy itself lives in `src/lib/disclaimer-text.ts` — split out
+from `disclaimer.ts` so the client-side registration form can render it
+without pulling Prisma into the browser bundle.
+
+This is boilerplate "organizational tool, not legal/financial advice"
+language, not reviewed by a lawyer — treat it as a starting point and have
+counsel confirm the wording actually achieves the liability protection
+intended before relying on it.
+
 ### Known gaps vs. the page-structure blurb in spec §2
 
 - No "visited vendor list" on `/dashboard` — that would need a tracking
