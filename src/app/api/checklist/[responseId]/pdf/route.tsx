@@ -17,6 +17,7 @@ const styles = StyleSheet.create({
   category: { fontSize: 14, marginTop: 16, marginBottom: 8 },
   item: { marginBottom: 12 },
   itemTitle: { fontSize: 12, marginBottom: 2 },
+  itemTitleDone: { fontSize: 12, marginBottom: 2, textDecoration: "line-through", color: "#888" },
   itemDescription: { marginBottom: 4, color: "#444" },
   link: { color: "#2563eb", textDecoration: "underline", marginBottom: 2 },
   vendorBox: { marginTop: 4, padding: 8, backgroundColor: "#f5f5f5" },
@@ -93,6 +94,9 @@ export async function GET(
     (response.answers as SurveyAnswers) ?? {},
   );
   const grouped = groupByCategory(triggered);
+  const completedCount = triggered.filter((item) =>
+    response.completedChecklistItemIds.includes(item.id),
+  ).length;
 
   const vendorCategories = new Map(
     triggered
@@ -116,14 +120,19 @@ export async function GET(
           {response.title ?? `${response.eventType.name} checklist`}
         </Text>
         <Text style={styles.subtitle}>
-          {triggered.length} task{triggered.length === 1 ? "" : "s"} based on your answers.
+          {completedCount} of {triggered.length} task{triggered.length === 1 ? "" : "s"} done.
         </Text>
         {Array.from(grouped.entries()).map(([category, items]) => (
           <View key={category}>
             <Text style={styles.category}>{category}</Text>
-            {items.map((item) => (
+            {items.map((item) => {
+              const done = response.completedChecklistItemIds.includes(item.id);
+              return (
               <View key={item.id} style={styles.item}>
-                <Text style={styles.itemTitle}>{item.title}</Text>
+                <Text style={done ? styles.itemTitleDone : styles.itemTitle}>
+                  {done ? "☑ " : "☐ "}
+                  {item.title}
+                </Text>
                 <Text style={styles.itemDescription}>{item.description}</Text>
                 {item.relatedLinks.map((url) => (
                   <Link key={url} style={styles.link} src={url}>
@@ -137,7 +146,8 @@ export async function GET(
                   />
                 ) : null}
               </View>
-            ))}
+              );
+            })}
           </View>
         ))}
         {triggered.length === 0 ? (

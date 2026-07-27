@@ -176,6 +176,31 @@ Yelp yourself" link whenever there's no zip code, no `YELP_API_KEY`, or the
 API call fails for any reason — vendor lookups never break the page. Set
 `YELP_API_KEY` in the environment to enable real results (see `.env.example`).
 
+### Checklist interactivity and PDF export
+
+`/checklist/[responseId]` renders through `<ChecklistBody>` (client
+component), which owns `completedChecklistItemIds` as shared state so
+every item's checkbox and the "N of M done" summary line stay in sync
+with each other instantly — a naive per-row local-state approach updates
+the row's own strikethrough fine but leaves the aggregate count stale
+until a reload. Toggling PATCHes `SurveyResponse.completedChecklistItemIds`
+(`{ toggleChecklistItemId }`), a manual to-do flag independent of whether
+the item is still triggered by the survey answers.
+
+The downloadable PDF (`/api/checklist/[responseId]/pdf`) mirrors the same
+data — including relatedLinks and vendor recommendations as real
+clickable `@react-pdf/renderer` `<Link>` annotations (previously it
+rendered neither) — and the same done/not-done state per item.
+
+### Survey progress
+
+Once the topic-selection question is answered, `SurveyRunner` shows a
+lightweight progress bar (answered vs. total questions across just the
+selected categories) above the section nav. It's an approximation, not
+an exact countdown — `skip_if_already_shown` and branch-based skips mean
+some counted questions will never actually be asked, so it may not
+reach 100% even once nothing's left.
+
 ### Known gaps vs. the page-structure blurb in spec §2
 
 - No "visited vendor list" on `/dashboard` — that would need a tracking
