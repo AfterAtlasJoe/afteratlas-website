@@ -121,18 +121,17 @@ const ANSWER_OPTION_TARGET_FIXES: Record<string, number> = {
 };
 
 /**
- * Some multiselect_group members ask about a less-common situation (a
- * "check this if you're unsure" item) and already carry a guide link in
- * their own `description` — but, unlike most bool rows, they don't route
- * to a separate "info" row, so nothing ever creates a ChecklistItem for
- * them and the guide link never makes it onto the final checklist. This
+ * Some bool rows ask about a less-common situation (a "check this if
+ * you're unsure" item) and already carry a guide link in their own
+ * `description` — but, unlike most bool rows, they don't route to a
+ * separate "info" row, so nothing ever creates a ChecklistItem for them
+ * and the guide link never makes it onto the final checklist. This
  * gives each one a checklist entry (title + the same description/link,
- * reusing authored content rather than writing new copy) and wires it to
- * fire on "Yes" or "Unknown" — either means "tell me more." Applies
- * wherever the source data has this exact shape (checked every
- * multiselect_group; only these two matched — the other three already
- * route each "Yes" to their own dedicated info screen/ChecklistItem the
- * normal way). The mechanism itself (see the PATCH route's
+ * reusing authored content rather than writing new copy) and wires it
+ * to fire on "Yes" or "Unknown" — either means "tell me more." Checked
+ * every bool row in the sheet for this exact shape (a link in its own
+ * description, no info_checklist_item); these three groups are the only
+ * matches. The mechanism itself (see the PATCH route's
  * `newlyTriggeredItems` diff and <TriggeredItemsSummary>) is generic to
  * any multiselect_group answer that triggers a checklist item, not
  * specific to these rows or categories.
@@ -154,7 +153,75 @@ const RARE_TOPIC_CHECKLIST_ITEMS: Record<number, { id: string; title: string }> 
   110: { id: "wa_property-insurance-info", title: "Property Insurance" },
   111: { id: "wa_auto-insurance-info", title: "Auto Insurance" },
   112: { id: "wa_medical-insurance-info", title: "Medical Insurance" },
+  // expenses_everyday (new group — see MULTISELECT_GROUP_FIXES)
+  117: { id: "wa_credit-cards-info", title: "Credit Cards" },
+  118: { id: "wa_recurring-subscriptions-info", title: "Recurring Subscriptions" },
+  119: { id: "wa_cell-phone-info", title: "Cell Phone" },
+  120: { id: "wa_utilities-info", title: "Utilities" },
 };
+
+/**
+ * Bundles several sequential, independent yes/no questions into one
+ * "select all that apply" screen instead of forcing a full-page
+ * transition per question — for less-common situations only; core or
+ * multi-step decision points (e.g. intestate succession, selling a
+ * house) keep their own dedicated screens. Unlike the source data's own
+ * multiselect_group column (read as-is elsewhere), these groupings don't
+ * exist in the spreadsheet, so they're assigned here instead of adding a
+ * new column the sheet doesn't have yet.
+ *
+ * - expenses_everyday: members already resolve to null either way
+ *   (nothing to redirect) and need new ChecklistItems
+ *   (RARE_TOPIC_CHECKLIST_ITEMS above) since these rows' links never
+ *   routed anywhere.
+ * - notifying_loved_ones_optional, post_death_benefits_less_common,
+ *   possessions_less_common: each member's "Yes" was authored to route
+ *   to its own dedicated "info" screen (e.g. uid 166 "war veteran" ->
+ *   uid 167, which has the real ChecklistItem content). Once grouped,
+ *   that per-member screen would never be shown anyway — the group's
+ *   `newlyTriggeredItems` summary surfaces the same ChecklistItem
+ *   instead — so those info rows are excluded from Question creation
+ *   entirely (see EXCLUDED_QUESTION_UIDS) rather than left as
+ *   unreachable dead screens; each Yes branch that would have pointed at
+ *   one now redirects to that row's own always_jump_to (handled
+ *   generically in resolvedOptionTarget/resolvedAlwaysJumpTo), matching
+ *   wherever it would have ended up anyway. Checked every multiselect
+ *   candidate for this shape; these three plus expenses_everyday are the
+ *   ones that fit, picked from a full pass over every bool question for
+ *   this "independent, less-common fact" shape — deliberately excluding
+ *   near-universal admin tasks (e.g. Loose Ends' notify-credit-bureaus/
+ *   voter-registrar/post-office chain — common, not rare) and
+ *   multi-step decision trees (house sale, vehicle titles, estate sale)
+ *   that need their own dedicated screens.
+ */
+const MULTISELECT_GROUP_FIXES: Record<number, string> = {
+  117: "expenses_everyday",
+  118: "expenses_everyday",
+  119: "expenses_everyday",
+  120: "expenses_everyday",
+  60: "notifying_loved_ones_optional",
+  62: "notifying_loved_ones_optional",
+  64: "notifying_loved_ones_optional",
+  66: "notifying_loved_ones_optional",
+  166: "post_death_benefits_less_common",
+  168: "post_death_benefits_less_common",
+  170: "post_death_benefits_less_common",
+  133: "possessions_less_common",
+  135: "possessions_less_common",
+};
+
+/**
+ * Rows that exist in the spreadsheet purely as the "info" screen for one
+ * of the MULTISELECT_GROUP_FIXES rows above, and are superseded once
+ * that row is grouped (their content surfaces via the group's
+ * newlyTriggeredItems summary instead). No Question is created for
+ * these — see the "Questions + answer options" loop — but their
+ * ChecklistItem still is (that loop reads straight from the parsed rows,
+ * not from created Questions), and any branch that would have targeted
+ * one is redirected to its own always_jump_to instead (resolvedOptionTarget/
+ * resolvedAlwaysJumpTo), landing wherever it would have ended up anyway.
+ */
+const EXCLUDED_QUESTION_UIDS = new Set([61, 63, 65, 67, 134, 136, 167, 169, 171]);
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -228,20 +295,38 @@ export async function seedXlsx() {
   const byUid = new Map(rows.map((r) => [r.uid, r]));
   const allUids = rows.map((r) => r.uid).sort((a, b) => a - b);
 
+  /**
+   * A target landing on an EXCLUDED_QUESTION_UIDS row (no Question ever
+   * created for it — see MULTISELECT_GROUP_FIXES) is redirected to that
+   * row's own always_jump_to instead — the real destination it would
+   * have led to anyway, since that row was never anything but a
+   * single-answer pass-through. Recurses into resolvedAlwaysJumpTo
+   * itself (rather than reading `always_jump_to` off the raw row) so an
+   * excluded row that's *also* an ALWAYS_JUMP_TO_FIXES key — uid 171 is
+   * both: excluded as Job-Related's info screen, and the fix that
+   * splices Guardianship in after Post-Death Benefits — resolves through
+   * the fix, not the raw spreadsheet value the fix exists to override.
+   */
+  function skipExcluded(uid: number | null): number | null {
+    if (uid === null || !EXCLUDED_QUESTION_UIDS.has(uid)) return uid;
+    const excludedRow = byUid.get(uid);
+    return excludedRow ? resolvedAlwaysJumpTo(excludedRow) : null;
+  }
+
   function resolvedAlwaysJumpTo(row: Row): number | null {
     if (ALWAYS_JUMP_TO_FIXES[row.uid] !== undefined) {
-      return ALWAYS_JUMP_TO_FIXES[row.uid];
+      return skipExcluded(ALWAYS_JUMP_TO_FIXES[row.uid]);
     }
-    return row.always_jump_to === "" ? null : Number(row.always_jump_to);
+    return skipExcluded(row.always_jump_to === "" ? null : Number(row.always_jump_to));
   }
 
   function resolvedOptionTarget(row: Row, option: ParsedOption): number | null {
     const fixKey = `${row.uid}:${option.label}`;
     if (ANSWER_OPTION_TARGET_FIXES[fixKey] !== undefined) {
-      return ANSWER_OPTION_TARGET_FIXES[fixKey];
+      return skipExcluded(ANSWER_OPTION_TARGET_FIXES[fixKey]);
     }
     if (option.next && option.next !== "null") {
-      return Number(option.next);
+      return skipExcluded(Number(option.next));
     }
     // Per §6: a "null" per-answer target falls back to this row's own
     // always_jump_to. If that's also unset, leave it unresolved — the
@@ -340,7 +425,9 @@ export async function seedXlsx() {
     ...rows.map((r) => r.info_checklist_item).filter(Boolean),
     ...Object.values(RARE_TOPIC_CHECKLIST_ITEMS).map((item) => item.id),
   ]);
-  const expectedQuestionIds = new Set(rows.map((r) => questionId(r.uid)));
+  const expectedQuestionIds = new Set(
+    rows.filter((r) => !EXCLUDED_QUESTION_UIDS.has(r.uid)).map((r) => questionId(r.uid)),
+  );
 
   const staleChecklistItemIds = (
     await prisma.checklistItem.findMany({
@@ -432,12 +519,14 @@ export async function seedXlsx() {
 
   // --- Questions + answer options ---------------------------------------
   for (const row of rows) {
+    if (EXCLUDED_QUESTION_UIDS.has(row.uid)) continue;
     const isWaSpecific = row.uid >= WA_JURISDICTION_UID_RANGE[0] && row.uid <= WA_JURISDICTION_UID_RANGE[1];
     const hasRealOptions = row.type === "bool" || row.type === "select";
     // Kept as raw text (markdown links intact) — QuestionCard/MultiselectGroupCard
     // render it through <LinkedText>, unlike ChecklistItem's description below,
     // which has links extracted into its own relatedLinks list instead.
     const description = row.description || null;
+    const multiselectGroup = MULTISELECT_GROUP_FIXES[row.uid] ?? (row.multiselect_group || null);
 
     await prisma.question.upsert({
       where: { id: questionId(row.uid) },
@@ -453,7 +542,7 @@ export async function seedXlsx() {
         order: row.uid,
         categorySequence: categorySequenceFor(categoryFromTopic(row.topic)),
         skipIfChecklistItemShownId: row.skip_if_already_shown || null,
-        multiselectGroup: row.multiselect_group || null,
+        multiselectGroup,
         vendorCategoryId: vendorCategoryIdFor(row),
       },
       update: {
@@ -465,7 +554,7 @@ export async function seedXlsx() {
         order: row.uid,
         categorySequence: categorySequenceFor(categoryFromTopic(row.topic)),
         skipIfChecklistItemShownId: row.skip_if_already_shown || null,
-        multiselectGroup: row.multiselect_group || null,
+        multiselectGroup,
         vendorCategoryId: vendorCategoryIdFor(row),
       },
     });
@@ -500,12 +589,13 @@ export async function seedXlsx() {
       });
     }
   }
-  console.log(`Seeded ${rows.length} questions`);
+  console.log(`Seeded ${rows.length - EXCLUDED_QUESTION_UIDS.size} questions`);
 
   // --- Question branches + checklist item triggers ----------------------
   let branchCount = 0;
   let triggerCount = 0;
   for (const row of rows) {
+    if (EXCLUDED_QUESTION_UIDS.has(row.uid)) continue;
     const hasRealOptions = row.type === "bool" || row.type === "select";
     const options = hasRealOptions
       ? parseAnswerOptions(row.answer_options)
@@ -593,6 +683,47 @@ export async function seedXlsx() {
     }
   }
   console.log(`Seeded ${rareTopicTriggerCount} rare-topic checklist item triggers`);
+
+  // --- Triggers for grouped questions whose info screen was excluded -----
+  // For notifying_loved_ones_optional / post_death_benefits_less_common /
+  // possessions_less_common, resolvedOptionTarget now skips straight past
+  // each member's excluded "Yes" target (see skipExcluded), so the general
+  // "target row has info_checklist_item" trigger mechanism above never
+  // sees that row anymore. Recover the same trigger directly: whichever
+  // excluded row a member's "Yes" was *originally* authored to reach still
+  // carries the real info_checklist_item — reuse it here rather than
+  // hardcoding the id a second time.
+  let excludedTargetTriggerCount = 0;
+  for (const uidStr of Object.keys(MULTISELECT_GROUP_FIXES)) {
+    const uid = Number(uidStr);
+    const row = byUid.get(uid);
+    if (!row) continue;
+    const options = parseAnswerOptions(row.answer_options);
+    const yesIndex = options.findIndex((option) => option.label === "Yes");
+    if (yesIndex === -1) continue;
+    const rawNext = options[yesIndex].next;
+    const originalTargetUid = rawNext && rawNext !== "null" ? Number(rawNext) : null;
+    if (originalTargetUid === null || !EXCLUDED_QUESTION_UIDS.has(originalTargetUid)) continue;
+    const checklistItemId = byUid.get(originalTargetUid)?.info_checklist_item;
+    if (!checklistItemId) continue;
+
+    const answerOptionId = `${questionId(uid)}-opt-${yesIndex}`;
+    await prisma.checklistItemTrigger.upsert({
+      where: {
+        checklistItemId_questionId_answerOptionId: {
+          checklistItemId,
+          questionId: questionId(uid),
+          answerOptionId,
+        },
+      },
+      create: { checklistItemId, questionId: questionId(uid), answerOptionId },
+      update: {},
+    });
+    excludedTargetTriggerCount++;
+  }
+  console.log(
+    `Seeded ${excludedTargetTriggerCount} checklist item triggers for grouped questions whose info screen was excluded`,
+  );
 
   await prisma.$disconnect();
 }
