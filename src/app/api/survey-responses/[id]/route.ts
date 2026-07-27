@@ -44,8 +44,12 @@ function parseAnswerPairs(body: unknown): AnswerPair[] | null {
 }
 
 /**
- * Four things happen through this route, distinguished by request body shape:
+ * Five things happen through this route, distinguished by request body shape:
  * - { title } — renames the response (used from the dashboard).
+ * - { toggleChecklistItemId } — flips a ChecklistItem id in/out of
+ *   `completedChecklistItemIds` (the checklist page's "mark as done"
+ *   checkbox). Independent of `answers`/triggering — a manual to-do
+ *   state layered on top.
  * - { navigateTo } — the "Back" button, or a section-nav click. Moves to
  *   any question already in `history`, or (without being in history yet)
  *   any question in a category the user selected at the topic-selection
@@ -93,6 +97,18 @@ export async function PATCH(
     const updated = await prisma.surveyResponse.update({
       where: { id },
       data: { title },
+    });
+    return NextResponse.json(updated);
+  }
+
+  if (typeof body.toggleChecklistItemId === "string") {
+    const itemId = body.toggleChecklistItemId;
+    const completedChecklistItemIds = response.completedChecklistItemIds.includes(itemId)
+      ? response.completedChecklistItemIds.filter((id) => id !== itemId)
+      : [...response.completedChecklistItemIds, itemId];
+    const updated = await prisma.surveyResponse.update({
+      where: { id },
+      data: { completedChecklistItemIds },
     });
     return NextResponse.json(updated);
   }

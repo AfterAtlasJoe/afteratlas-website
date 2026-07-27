@@ -128,6 +128,25 @@ export function SurveyRunner({
     return complete;
   }, [visibleCategories, questions, answers]);
 
+  /**
+   * A rough "how much is left" gauge, scoped to the categories chosen at
+   * the topic-selection question — an approximation, not an exact
+   * countdown: skip_if_already_shown and branch-based skips mean some of
+   * these will never actually be asked, so the count may not reach 100%
+   * even once nothing's left. Shown only once a selection has been made;
+   * before that there's no "topics they selected" to measure against.
+   */
+  const progress = useMemo(() => {
+    if (selectedCategories.length === 0) return null;
+    const selectedSet = new Set(selectedCategories);
+    const total = questions.filter((q) => selectedSet.has(q.category)).length;
+    if (total === 0) return null;
+    const answered = questions.filter(
+      (q) => selectedSet.has(q.category) && answers[q.id],
+    ).length;
+    return { answered, total };
+  }, [questions, selectedCategories, answers]);
+
   const currentQuestion = questionsById.get(currentQuestionId);
 
   /**
@@ -256,6 +275,21 @@ export function SurveyRunner({
         <h1 className="mb-4 text-sm font-semibold text-zinc-500">
           {eventTypeName}
         </h1>
+        {progress ? (
+          <div className="mb-4">
+            <p className="mb-1 text-xs text-zinc-500">
+              {progress.answered} of {progress.total} questions
+            </p>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+              <div
+                className="h-full rounded-full bg-foreground transition-all"
+                style={{
+                  width: `${Math.min(100, Math.round((progress.answered / progress.total) * 100))}%`,
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
         <SectionNav
           categories={visibleCategories}
           currentCategory={currentQuestion?.category ?? visibleCategories[0]}

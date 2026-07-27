@@ -466,6 +466,14 @@ model SurveyResponse {
   /// never filtered, regardless of this list.
   selectedCategories String[] @default([])
 
+  /// ChecklistItem ids the user has manually checked off as done on the
+  /// /checklist page. Purely a user-tracked to-do state — unrelated to
+  /// whether an item is triggered (that's still driven entirely by
+  /// `answers`); an item can be un-triggered later (answers changed) and
+  /// still remember it was checked off, since there's no reason to lose
+  /// that if it becomes triggered again.
+  completedChecklistItemIds String[] @default([])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

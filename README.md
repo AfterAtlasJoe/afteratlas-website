@@ -84,12 +84,32 @@ the specific rows that currently use them:
   renders them as one "select all that apply" screen
   (`MultiselectGroupCard`), submitting all answers in a single batch via
   `PATCH /api/survey-responses/[id]` (`{ answers: [...] }`). If that batch
-  triggers a `ChecklistItem` that wasn't already triggered (e.g. checking
-  a less-common item in `possessions_other` like "mineral rights"), the
-  route returns it under `newlyTriggeredItems` and the client shows it as
-  a one-screen "a few things to note" summary (`TriggeredItemsSummary`)
+  triggers a `ChecklistItem` that wasn't already triggered, the route
+  returns it under `newlyTriggeredItems` and the client shows it as a
+  one-screen "a few things to note" summary (`TriggeredItemsSummary`)
   before advancing — the only place in the survey a triggered item is
   surfaced without its own dedicated "info" screen.
+
+  Two shapes feed this: (1) rows whose own description already carries a
+  guide link but no `info_checklist_item` (Possessions' `possessions_other`
+  — mineral rights, timeshares, etc. — and Finances'
+  `finances_accounts_insurance`), which get a new ChecklistItem reusing
+  that description; and (2) rows retrofitted into a *new* grouping the
+  spreadsheet doesn't define at all (`MULTISELECT_GROUP_FIXES` in
+  seed-xlsx.ts) for independent, less-common facts that were each forcing
+  their own full-page transition — Notifying Loved Ones' optional-info
+  chain, Post-Death Benefits' war-veteran/criminal-act/job-related, and
+  Possessions' out-of-state-property/tenants, plus Expenses' shape-(1)
+  everyday-accounts group. Retrofitted rows keep their existing
+  ChecklistItem (already created via the standard target-row mechanism);
+  their old per-row "info" screen becomes unreachable dead weight once
+  grouped, so it's excluded from Question creation entirely
+  (`EXCLUDED_QUESTION_UIDS`) and any branch that would have targeted it
+  redirects to its own `always_jump_to` instead — including through
+  `ALWAYS_JUMP_TO_FIXES` when the excluded row is itself a fix target
+  (uid 171 is both Job-Related's info screen *and* the fix that splices
+  Guardianship into the tour, so the redirect resolves through the fix,
+  never the raw spreadsheet value it exists to override).
 
 `Jurisdiction` (`wa` fully populated, `general` a stub with no content
 yet) backs the nullable `Question.jurisdictionId` — set only on the
@@ -155,6 +175,31 @@ zip code collected on the "name this survey" screen at the very start
 Yelp yourself" link whenever there's no zip code, no `YELP_API_KEY`, or the
 API call fails for any reason — vendor lookups never break the page. Set
 `YELP_API_KEY` in the environment to enable real results (see `.env.example`).
+
+### Checklist interactivity and PDF export
+
+`/checklist/[responseId]` renders through `<ChecklistBody>` (client
+component), which owns `completedChecklistItemIds` as shared state so
+every item's checkbox and the "N of M done" summary line stay in sync
+with each other instantly — a naive per-row local-state approach updates
+the row's own strikethrough fine but leaves the aggregate count stale
+until a reload. Toggling PATCHes `SurveyResponse.completedChecklistItemIds`
+(`{ toggleChecklistItemId }`), a manual to-do flag independent of whether
+the item is still triggered by the survey answers.
+
+The downloadable PDF (`/api/checklist/[responseId]/pdf`) mirrors the same
+data — including relatedLinks and vendor recommendations as real
+clickable `@react-pdf/renderer` `<Link>` annotations (previously it
+rendered neither) — and the same done/not-done state per item.
+
+### Survey progress
+
+Once the topic-selection question is answered, `SurveyRunner` shows a
+lightweight progress bar (answered vs. total questions across just the
+selected categories) above the section nav. It's an approximation, not
+an exact countdown — `skip_if_already_shown` and branch-based skips mean
+some counted questions will never actually be asked, so it may not
+reach 100% even once nothing's left.
 
 ### Known gaps vs. the page-structure blurb in spec §2
 
