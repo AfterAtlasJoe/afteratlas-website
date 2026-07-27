@@ -46,13 +46,25 @@ function parseAnswerPairs(body: unknown): AnswerPair[] | null {
 /**
  * Four things happen through this route, distinguished by request body shape:
  * - { title } — renames the response (used from the dashboard).
- * - { navigateTo } — moves to a question already in `history` (the "Back"
- *   button, or clicking an already-revealed section) without touching
- *   answers or history itself.
- * - { questionId, answerOptionId } — records one answer and advances.
+ * - { navigateTo } — the "Back" button, or a section-nav click. Moves to
+ *   any question already in `history`, or (without being in history yet)
+ *   any question in a category the user selected at the topic-selection
+ *   question — letting nav move freely within the chosen set — without
+ *   touching answers.
+ * - { questionId, answerOptionId, selectedCategories? } — records one
+ *   answer and advances. `selectedCategories` is only valid when
+ *   answering a `topic_selection` question (the bucket picker); it's
+ *   stored on the response and, from then on, any Question whose
+ *   category is covered by some TopicBucket but wasn't selected is
+ *   skipped entirely (categories outside every bucket, e.g. the intro
+ *   sequence, are never filtered).
  * - { answers: [{ questionId, answerOptionId }, ...] } — records a batch of
  *   answers at once (a `multiselect_group` screen submitting all its rows
- *   together), then advances past the last one.
+ *   together), then advances past the last one. The response also carries
+ *   `newlyTriggeredItems`: any ChecklistItem this batch triggered that
+ *   wasn't already triggered before it. A multiselect batch has no
+ *   per-question "info" screen the way the one-at-a-time flow does, so
+ *   the client shows these as a one-screen summary before advancing.
  * Mode-agnostic either way — the branching engine (src/lib/survey-engine.ts)
  * never branches on event type.
  */
@@ -86,16 +98,45 @@ export async function PATCH(
   }
 
   if (typeof body.navigateTo === "string") {
-    const history = response.history;
-    if (!history.includes(body.navigateTo)) {
+    const targetId = body.navigateTo;
+    let allowed = response.history.includes(targetId);
+
+    if (!allowed) {
+      // Not visited yet — allowed only if it's a real question in a
+      // category the user has actually selected (or one no bucket covers
+      // at all), so choosing buckets upfront lets you jump freely among
+      // them rather than only ones you've already passed through.
+      const [targetQuestion, topicBuckets] = await Promise.all([
+        prisma.question.findFirst({
+          where: { id: targetId, eventTypeId: response.eventTypeId, mode: response.mode },
+          select: { category: true },
+        }),
+        prisma.topicBucket.findMany({
+          where: { eventTypeId: response.eventTypeId, mode: response.mode },
+        }),
+      ]);
+      const allBucketedCategories = new Set(topicBuckets.flatMap((bucket) => bucket.categories));
+      allowed = Boolean(
+        targetQuestion &&
+          (!allBucketedCategories.has(targetQuestion.category) ||
+            response.selectedCategories.includes(targetQuestion.category)),
+      );
+    }
+
+    if (!allowed) {
       return NextResponse.json(
-        { error: "navigateTo must be a question already in history" },
+        { error: "navigateTo must be a question already visited or in a selected category" },
         { status: 400 },
       );
     }
+
+    const history = response.history.includes(targetId)
+      ? response.history
+      : [...response.history, targetId];
+
     const updated = await prisma.surveyResponse.update({
       where: { id },
-      data: { lastQuestionId: body.navigateTo },
+      data: { lastQuestionId: targetId, history },
     });
     return NextResponse.json(updated);
   }
@@ -111,11 +152,32 @@ export async function PATCH(
     );
   }
 
-  const [orderedQuestions, branches, checklistItems] = await Promise.all([
+  let selectedCategoriesInput: string[] | null = null;
+  if (Array.isArray(body.selectedCategories)) {
+    if (
+      body.selectedCategories.length === 0 ||
+      !body.selectedCategories.every((c: unknown) => typeof c === "string")
+    ) {
+      return NextResponse.json(
+        { error: "selectedCategories must be a non-empty array of strings" },
+        { status: 400 },
+      );
+    }
+    selectedCategoriesInput = body.selectedCategories;
+  }
+
+  const [orderedQuestions, branches, checklistItems, topicBuckets] = await Promise.all([
     prisma.question.findMany({
       where: { eventTypeId: response.eventTypeId, mode: response.mode },
       orderBy: { order: "asc" },
-      select: { id: true, skipIfChecklistItemShownId: true },
+      select: {
+        id: true,
+        type: true,
+        category: true,
+        order: true,
+        categorySequence: true,
+        skipIfChecklistItemShownId: true,
+      },
     }),
     prisma.questionBranch.findMany({
       where: {
@@ -126,9 +188,30 @@ export async function PATCH(
       where: { eventTypeId: response.eventTypeId },
       include: { triggers: { select: { questionId: true, answerOptionId: true } } },
     }),
+    prisma.topicBucket.findMany({
+      where: { eventTypeId: response.eventTypeId, mode: response.mode },
+    }),
   ]);
 
-  const answers: SurveyAnswers = { ...((response.answers as SurveyAnswers) ?? {}) };
+  if (selectedCategoriesInput) {
+    const targetQuestion = orderedQuestions.find((q) => q.id === pairs[0].questionId);
+    if (!targetQuestion || targetQuestion.type !== "topic_selection") {
+      return NextResponse.json(
+        { error: "selectedCategories can only be set when answering a topic_selection question" },
+        { status: 400 },
+      );
+    }
+  }
+
+  const allBucketedCategories = new Set(topicBuckets.flatMap((bucket) => bucket.categories));
+  const selectedCategories = new Set(selectedCategoriesInput ?? response.selectedCategories);
+
+  const answersBefore: SurveyAnswers = (response.answers as SurveyAnswers) ?? {};
+  const triggeredBefore = new Set(
+    resolveTriggeredItems(checklistItems, answersBefore).map((item) => item.id),
+  );
+
+  const answers: SurveyAnswers = { ...answersBefore };
   for (const pair of pairs) {
     answers[pair.questionId] = pair.answerOptionId;
   }
@@ -136,6 +219,23 @@ export async function PATCH(
   const triggeredChecklistItemIds = new Set(
     resolveTriggeredItems(checklistItems, answers).map((item) => item.id),
   );
+
+  // Multiselect_group screens answer several questions in one batch with
+  // no per-question "info" screen in between (unlike the normal
+  // one-at-a-time flow, where a triggered item's own info screen already
+  // surfaces it). Surface anything newly triggered by this batch as a
+  // one-screen summary before advancing, so it doesn't pass by unseen.
+  const newlyTriggeredItems =
+    pairs.length > 1
+      ? checklistItems
+          .filter((item) => triggeredChecklistItemIds.has(item.id) && !triggeredBefore.has(item.id))
+          .map((item) => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            relatedLinks: item.relatedLinks,
+          }))
+      : [];
 
   const lastPair = pairs[pairs.length - 1];
   const nextQuestionId = advanceSurvey(
@@ -145,6 +245,7 @@ export async function PATCH(
     answers,
     branches,
     triggeredChecklistItemIds,
+    { allBucketedCategories, selectedCategories },
   );
 
   const history =
@@ -159,10 +260,11 @@ export async function PATCH(
       lastQuestionId: nextQuestionId,
       status: nextQuestionId ? "in_progress" : "completed",
       history,
+      ...(selectedCategoriesInput ? { selectedCategories: selectedCategoriesInput } : {}),
     },
   });
 
-  return NextResponse.json(updated);
+  return NextResponse.json({ ...updated, newlyTriggeredItems });
 }
 
 export async function DELETE(

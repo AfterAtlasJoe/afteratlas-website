@@ -83,12 +83,52 @@ the specific rows that currently use them:
   detects a contiguous run of questions sharing a group value and
   renders them as one "select all that apply" screen
   (`MultiselectGroupCard`), submitting all answers in a single batch via
-  `PATCH /api/survey-responses/[id]` (`{ answers: [...] }`).
+  `PATCH /api/survey-responses/[id]` (`{ answers: [...] }`). If that batch
+  triggers a `ChecklistItem` that wasn't already triggered (e.g. checking
+  a less-common item in `possessions_other` like "mineral rights"), the
+  route returns it under `newlyTriggeredItems` and the client shows it as
+  a one-screen "a few things to note" summary (`TriggeredItemsSummary`)
+  before advancing — the only place in the survey a triggered item is
+  surfaced without its own dedicated "info" screen.
 
 `Jurisdiction` (`wa` fully populated, `general` a stub with no content
 yet) backs the nullable `Question.jurisdictionId` — set only on the
 will/intestate-succession intro sequence (uid 5–40), matching spec's
 "most of the survey is jurisdiction-agnostic" guidance.
+
+### Topic selection (buckets)
+
+The `topic_selection` question (uid 41 — previously a no-op info screen)
+now renders `TopicBucketPicker`: a handful of `TopicBucket` rows (e.g.
+"Legal & Estate" grouping Guardianship/Last wishes/Filing Paperwork), each
+covering several `Question.category` values, so the choice is 4 things
+instead of a flat 13. The chosen categories are flattened and stored on
+`SurveyResponse.selectedCategories`; the section nav shows exactly that
+set (plus any category no bucket covers, e.g. "Getting Started") right
+away rather than revealing them as they're reached, and lets you move
+freely between them, not just back.
+
+This surfaced a real wrinkle in the source data: the spreadsheet's
+categories aren't visited in uid order, or even in their own numeric
+topic prefix order (1 Guardianship … 13 Self Care) — they're one
+hand-authored tour that loops around uid-space (Filing Paperwork →
+Notifying Loved Ones → Possessions → Expenses → Finances → Business →
+Loose Ends → Last wishes → Post-Death Benefits → Guardianship →
+Employment → Digital Assets → Self Care). Guardianship/Employment/Digital
+Assets in particular are *only* entered via the `171: 42` splice late in
+that tour despite sitting at low uids — so skipping an unselected
+category by scanning forward in uid order can silently strand a selected
+category positioned earlier in uid space. `Question.categorySequence`
+records each category's real position in this tour (seeded from
+`CANONICAL_CATEGORY_ORDER` in `seed-xlsx.ts`, matching the
+`ALWAYS_JUMP_TO_FIXES` comments exactly), and `advanceSurvey` uses it to
+jump straight to the entry point of the next *selected* category by
+sequence when the natural next one wasn't chosen, rather than scanning
+uid order. Verified for 7 representative selections (all four buckets;
+each bucket alone; two non-adjacent buckets together) by walking every
+answer branch with the real engine — every selected category's questions
+are reached, no unselected one ever is, and the all-buckets case still
+reaches all 177/177 questions exactly as before this feature.
 
 **Data-quality note:** the source spreadsheet's own change history shows
 three categories (Guardianship, Employment, Digital Assets) and a
