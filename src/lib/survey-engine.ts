@@ -41,10 +41,17 @@ export function resolveSkippedQuestionIds(
 
 type Trigger = { questionId: string; answerOptionId: string };
 
-/** Whether every trigger for a given item is satisfied by the recorded answers (AND semantics across triggers). */
+/**
+ * Whether a given item has been triggered by the recorded answers. Each
+ * trigger row is an independent sufficient path — content reachable via
+ * more than one branch (a convergence point in the graph) can have
+ * several trigger rows, any one of which is enough; a session only ever
+ * satisfies one at a time since the underlying branches are mutually
+ * exclusive.
+ */
 function isTriggered(triggers: Trigger[], answers: SurveyAnswers): boolean {
   if (triggers.length === 0) return false;
-  return triggers.every((t) => answers[t.questionId] === t.answerOptionId);
+  return triggers.some((t) => answers[t.questionId] === t.answerOptionId);
 }
 
 /** Filters a library of checklist items / gaps down to the ones triggered by the given answers. */
@@ -55,12 +62,22 @@ export function resolveTriggeredItems<T extends { triggers: Trigger[] }>(
   return items.filter((item) => isTriggered(item.triggers, answers));
 }
 
-type OrderedQuestion = { id: string };
+type OrderedQuestion = {
+  id: string;
+  /** Set only if this question should be skipped once the referenced ChecklistItem has already been triggered this session. */
+  skipIfChecklistItemShownId?: string | null;
+};
 
 /**
  * Given the full answer set so far, decides which question to show next.
  * Prefers an explicit QuestionBranch target for the answer just given;
  * otherwise falls through to the next not-skipped question in order.
+ * Whatever is resolved (explicit branch or fallback) is then walked
+ * forward past any question that should be skipped — either because an
+ * earlier branch's `skipQuestionIds` named it, or because its
+ * `skipIfChecklistItemShownId` item was already triggered this session
+ * (dedup for content reachable via more than one path; see §5/§6 of the
+ * spec) — landing on the first question that isn't skipped.
  * Returns null once there is nothing left to ask (survey complete).
  */
 export function advanceSurvey(
@@ -69,6 +86,7 @@ export function advanceSurvey(
   answeredOptionId: string,
   answers: SurveyAnswers,
   branches: Branch[],
+  triggeredChecklistItemIds: Set<string> = new Set(),
 ): string | null {
   const skipped = new Set<string>();
   for (const [qId, optId] of Object.entries(answers)) {
@@ -76,27 +94,38 @@ export function advanceSurvey(
       skipped.add(id);
     }
   }
-
-  const explicitNext = resolveNextQuestionId(
-    answeredQuestionId,
-    answeredOptionId,
-    branches,
-  );
-  if (explicitNext && !skipped.has(explicitNext)) {
-    return explicitNext;
-  }
-
-  const currentIndex = orderedQuestions.findIndex(
-    (q) => q.id === answeredQuestionId,
-  );
-  for (let i = currentIndex + 1; i < orderedQuestions.length; i++) {
-    const candidate = orderedQuestions[i];
-    if (!skipped.has(candidate.id) && !answers[candidate.id]) {
-      return candidate.id;
+  for (const q of orderedQuestions) {
+    if (
+      q.skipIfChecklistItemShownId &&
+      triggeredChecklistItemIds.has(q.skipIfChecklistItemShownId)
+    ) {
+      skipped.add(q.id);
     }
   }
 
-  return null;
+  function nextInOrderAfter(id: string): string | null {
+    const idx = orderedQuestions.findIndex((q) => q.id === id);
+    for (let i = idx + 1; i < orderedQuestions.length; i++) {
+      const candidate = orderedQuestions[i];
+      if (!skipped.has(candidate.id) && !answers[candidate.id]) {
+        return candidate.id;
+      }
+    }
+    return null;
+  }
+
+  let candidate =
+    resolveNextQuestionId(answeredQuestionId, answeredOptionId, branches) ??
+    nextInOrderAfter(answeredQuestionId);
+
+  // Defensive cap: guards against a data cycle producing an infinite loop.
+  let guard = 0;
+  while (candidate && skipped.has(candidate) && guard < orderedQuestions.length) {
+    candidate = nextInOrderAfter(candidate);
+    guard++;
+  }
+
+  return candidate;
 }
 
 /** Groups a flat list into a Map keyed by `category`, preserving input order within each group. */

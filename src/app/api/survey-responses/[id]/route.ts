@@ -2,14 +2,56 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { advanceSurvey, type SurveyAnswers } from "@/lib/survey-engine";
+import {
+  advanceSurvey,
+  resolveTriggeredItems,
+  type SurveyAnswers,
+} from "@/lib/survey-engine";
+
+type AnswerPair = { questionId: string; answerOptionId: string };
+
+function parseAnswerPairs(body: unknown): AnswerPair[] | null {
+  if (
+    body &&
+    typeof body === "object" &&
+    "questionId" in body &&
+    "answerOptionId" in body
+  ) {
+    const { questionId, answerOptionId } = body as Record<string, unknown>;
+    if (typeof questionId === "string" && typeof answerOptionId === "string") {
+      return [{ questionId, answerOptionId }];
+    }
+    return null;
+  }
+  if (body && typeof body === "object" && Array.isArray((body as { answers?: unknown }).answers)) {
+    const pairs = (body as { answers: unknown[] }).answers;
+    const parsed: AnswerPair[] = [];
+    for (const pair of pairs) {
+      if (
+        pair &&
+        typeof pair === "object" &&
+        typeof (pair as Record<string, unknown>).questionId === "string" &&
+        typeof (pair as Record<string, unknown>).answerOptionId === "string"
+      ) {
+        parsed.push(pair as AnswerPair);
+      } else {
+        return null;
+      }
+    }
+    return parsed.length > 0 ? parsed : null;
+  }
+  return null;
+}
 
 /**
- * Two things happen through this route, distinguished by request body shape:
+ * Three things happen through this route, distinguished by request body shape:
  * - { title } — renames the response (used from the dashboard).
- * - { questionId, answerOptionId } — records an answer and advances the
- *   survey, using the generic branching engine (see
- *   src/lib/survey-engine.ts). Mode-agnostic either way.
+ * - { questionId, answerOptionId } — records one answer and advances.
+ * - { answers: [{ questionId, answerOptionId }, ...] } — records a batch of
+ *   answers at once (a `multiselect_group` screen submitting all its rows
+ *   together), then advances past the last one.
+ * Mode-agnostic either way — the branching engine (src/lib/survey-engine.ts)
+ * never branches on event type.
  */
 export async function PATCH(
   request: NextRequest,
@@ -40,39 +82,51 @@ export async function PATCH(
     return NextResponse.json(updated);
   }
 
-  const questionId: string | undefined = body.questionId;
-  const answerOptionId: string | undefined = body.answerOptionId;
-  if (!questionId || !answerOptionId) {
+  const pairs = parseAnswerPairs(body);
+  if (!pairs) {
     return NextResponse.json(
-      { error: "questionId and answerOptionId (or title) are required" },
+      {
+        error:
+          "Provide either { title }, { questionId, answerOptionId }, or { answers: [...] }",
+      },
       { status: 400 },
     );
   }
 
-  const [orderedQuestions, branches] = await Promise.all([
+  const [orderedQuestions, branches, checklistItems] = await Promise.all([
     prisma.question.findMany({
       where: { eventTypeId: response.eventTypeId, mode: response.mode },
       orderBy: { order: "asc" },
-      select: { id: true },
+      select: { id: true, skipIfChecklistItemShownId: true },
     }),
     prisma.questionBranch.findMany({
       where: {
         question: { eventTypeId: response.eventTypeId, mode: response.mode },
       },
     }),
+    prisma.checklistItem.findMany({
+      where: { eventTypeId: response.eventTypeId },
+      include: { triggers: { select: { questionId: true, answerOptionId: true } } },
+    }),
   ]);
 
-  const answers: SurveyAnswers = {
-    ...((response.answers as SurveyAnswers) ?? {}),
-    [questionId]: answerOptionId,
-  };
+  const answers: SurveyAnswers = { ...((response.answers as SurveyAnswers) ?? {}) };
+  for (const pair of pairs) {
+    answers[pair.questionId] = pair.answerOptionId;
+  }
 
+  const triggeredChecklistItemIds = new Set(
+    resolveTriggeredItems(checklistItems, answers).map((item) => item.id),
+  );
+
+  const lastPair = pairs[pairs.length - 1];
   const nextQuestionId = advanceSurvey(
     orderedQuestions,
-    questionId,
-    answerOptionId,
+    lastPair.questionId,
+    lastPair.answerOptionId,
     answers,
     branches,
+    triggeredChecklistItemIds,
   );
 
   const updated = await prisma.surveyResponse.update({

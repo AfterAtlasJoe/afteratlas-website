@@ -49,42 +49,6 @@
   ],
   "questions": [
     {
-      "id": "death-q-owned-home",
-      "mode": "post_event",
-      "category": "Home & Property",
-      "section": null,
-      "order": 1,
-      "prompt": "Did your loved one own a home?",
-      "answerOptions": [
-        { "id": "death-q-owned-home-yes", "label": "Yes", "value": "yes", "order": 1 },
-        { "id": "death-q-owned-home-no", "label": "No", "value": "no", "order": 2 }
-      ]
-    },
-    {
-      "id": "death-q-had-mortgage",
-      "mode": "post_event",
-      "category": "Home & Property",
-      "section": null,
-      "order": 2,
-      "prompt": "Was there a mortgage on the home?",
-      "answerOptions": [
-        { "id": "death-q-had-mortgage-yes", "label": "Yes", "value": "yes", "order": 1 },
-        { "id": "death-q-had-mortgage-no", "label": "No", "value": "no", "order": 2 }
-      ]
-    },
-    {
-      "id": "death-q-life-insurance",
-      "mode": "post_event",
-      "category": "Financial Accounts",
-      "section": null,
-      "order": 3,
-      "prompt": "Did they have a life insurance policy?",
-      "answerOptions": [
-        { "id": "death-q-life-insurance-yes", "label": "Yes", "value": "yes", "order": 1 },
-        { "id": "death-q-life-insurance-no", "label": "No", "value": "no", "order": 2 }
-      ]
-    },
-    {
       "id": "planning-q-has-will",
       "mode": "planning",
       "category": "Estate Planning",
@@ -109,55 +73,8 @@
       ]
     }
   ],
-  "branches": [
-    {
-      "questionId": "death-q-owned-home",
-      "answerOptionId": "death-q-owned-home-yes",
-      "nextQuestionId": "death-q-had-mortgage",
-      "skipQuestionIds": []
-    },
-    {
-      "questionId": "death-q-owned-home",
-      "answerOptionId": "death-q-owned-home-no",
-      "nextQuestionId": null,
-      "skipQuestionIds": ["death-q-had-mortgage"]
-    }
-  ],
-  "checklistItems": [
-    {
-      "id": "death-item-notify-mortgage-lender",
-      "title": "Notify the mortgage lender",
-      "description": "Let the lender know the borrower has died so payments and account access are handled correctly.",
-      "category": "Home & Property",
-      "relatedLinks": [],
-      "vendorCategoryId": null,
-      "triggers": [
-        { "questionId": "death-q-had-mortgage", "answerOptionId": "death-q-had-mortgage-yes" }
-      ]
-    },
-    {
-      "id": "death-item-sell-or-rent-property",
-      "title": "Decide whether to sell, rent, or keep the property",
-      "description": "An inherited home often needs a decision fairly quickly. A realtor experienced with estate sales can help you weigh the options.",
-      "category": "Home & Property",
-      "relatedLinks": [],
-      "vendorCategoryId": "realtors",
-      "triggers": [
-        { "questionId": "death-q-owned-home", "answerOptionId": "death-q-owned-home-yes" }
-      ]
-    },
-    {
-      "id": "death-item-file-life-insurance-claim",
-      "title": "File a life insurance claim",
-      "description": "Contact the insurer with a certified copy of the death certificate to start the claims process.",
-      "category": "Financial Accounts",
-      "relatedLinks": [],
-      "vendorCategoryId": "financial-advisors",
-      "triggers": [
-        { "questionId": "death-q-life-insurance", "answerOptionId": "death-q-life-insurance-yes" }
-      ]
-    }
-  ],
+  "branches": [],
+  "checklistItems": [],
   "gaps": [
     {
       "id": "planning-gap-no-will",

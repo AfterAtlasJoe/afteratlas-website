@@ -1,3 +1,4 @@
+import { LinkedText } from "./linked-text";
 import type { QuestionData } from "./types";
 
 type QuestionCardProps = {
@@ -20,6 +21,11 @@ export function QuestionCard({
         {question.category}
       </p>
       <h2 className="text-xl font-medium">{question.prompt}</h2>
+      {question.description ? (
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <LinkedText text={question.description} />
+        </p>
+      ) : null}
       <div className="flex flex-col gap-2">
         {question.answerOptions
           .slice()

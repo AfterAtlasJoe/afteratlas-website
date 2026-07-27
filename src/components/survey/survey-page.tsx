@@ -71,9 +71,11 @@ export async function SurveyPage({
   const questionData: QuestionData[] = questions.map((q) => ({
     id: q.id,
     prompt: q.prompt,
+    description: q.description,
     category: q.category,
     section: q.section,
     order: q.order,
+    multiselectGroup: q.multiselectGroup,
     answerOptions: q.answerOptions,
   }));
 
