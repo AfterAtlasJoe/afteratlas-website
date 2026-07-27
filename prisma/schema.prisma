@@ -122,20 +122,6 @@ model Question {
   order       Int
   section     String?
 
-  /// This question's category's position in the actual authored tour
-  /// through categories — NOT the same as sorting categories by their
-  /// own `order`/uid range, since several categories are only reachable
-  /// via a mid-sequence splice into an earlier uid range (e.g.
-  /// Guardianship's block sits at low uids but is only entered from late
-  /// in the tour, after Post-Death Benefits). Null for categories no
-  /// TopicBucket covers (e.g. the mandatory intro). Shared by every
-  /// question in the same category. Used only to redirect at a category
-  /// boundary when advanceSurvey finds the natural next category wasn't
-  /// selected — jump to the next-by-this-sequence category that was,
-  /// rather than the uid-order fallback (which can't reach a category
-  /// whose block sits earlier in uid space, like Guardianship's).
-  categorySequence Int?
-
   /// Skip this question entirely if the referenced ChecklistItem was
   /// already triggered earlier in the same session (session-level dedup
   /// for content reachable via more than one path).

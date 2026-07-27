@@ -117,6 +117,32 @@ export function SurveyRunner({
       (category) => !bucketedCategories.has(category) || selectedSet.has(category),
     );
   }, [selectedCategories, history, questionsById, allCategoriesInOrder, bucketedCategories]);
+  /**
+   * Section-nav grouping: once buckets are chosen, group `visibleCategories`
+   * under their bucket header, in the same order (`buckets` arrives
+   * pre-sorted by `TopicBucket.order`) and category-within-bucket order as
+   * the picker itself — matching the order the survey is actually
+   * traversed in (see `advanceSurvey`'s `categoryOrder`). A category no
+   * bucket covers (the mandatory intro) gets its own header-less group.
+   */
+  const navGroups = useMemo(() => {
+    if (selectedCategories.length === 0) {
+      return [{ bucketName: null as string | null, categories: visibleCategories }];
+    }
+    const visibleSet = new Set(visibleCategories);
+    const groups: { bucketName: string | null; categories: string[] }[] = [];
+    const unbucketed = visibleCategories.filter((category) => !bucketedCategories.has(category));
+    if (unbucketed.length > 0) {
+      groups.push({ bucketName: null, categories: unbucketed });
+    }
+    for (const bucket of buckets) {
+      const categories = bucket.categories.filter((category) => visibleSet.has(category));
+      if (categories.length > 0) {
+        groups.push({ bucketName: bucket.name, categories });
+      }
+    }
+    return groups;
+  }, [selectedCategories, visibleCategories, bucketedCategories, buckets]);
   const completedCategories = useMemo(() => {
     const complete = new Set<string>();
     for (const category of visibleCategories) {
@@ -291,7 +317,7 @@ export function SurveyRunner({
           </div>
         ) : null}
         <SectionNav
-          categories={visibleCategories}
+          groups={navGroups}
           currentCategory={currentQuestion?.category ?? visibleCategories[0]}
           completedCategories={completedCategories}
           onSelectCategory={handleSelectCategory}
