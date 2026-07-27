@@ -118,6 +118,83 @@ const ALWAYS_JUMP_TO_FIXES: Record<number, number> = {
 const ANSWER_OPTION_TARGET_FIXES: Record<string, number> = {
   "170:No": 42, // Post-Death Benefits' other exit into the same splice point as above
   "147:No": 151, // Possessions "not enough for an estate sale": same splice as 149/150
+  "5:Yes": 9038, // Route the "had a valid will" path to its own executor/What's-Next variant — see PERSONAL_REP_WILL_VARIANT_ROWS
+};
+
+/**
+ * uid 5 ("Did the decedent have a valid will?") Yes and No both originally
+ * converged on the same uid 38/39/40 (executor question -> Personal Rep
+ * info -> "What's Next" bridge screen) — so every user saw "You now have a
+ * picture of how Washington law would handle this estate" even if they
+ * never saw any intestate-succession content, because a will existed and
+ * uid 5's "No" chain (which walks that succession content) was never
+ * taken. These three synthetic rows are a same-uid clone of that
+ * sub-graph for the "yes, a valid will exists" path, with uid 9040's copy
+ * rewritten to actually match that path, so uid 5's "No" branch (through
+ * the intestate-succession chain) keeps reaching the original uid 38/39/40
+ * unchanged. uid 9039 deliberately reuses uid 39's own
+ * info_checklist_item — the same content is correct on both paths, and
+ * ChecklistItemTrigger already supports one item having several trigger
+ * rows (see resolveTriggeredItems in survey-engine.ts).
+ */
+const PERSONAL_REP_WILL_VARIANT_ROWS: Row[] = [
+  {
+    uid: 9038,
+    topic: "",
+    type: "bool",
+    vendors_suggestion: "",
+    name: "Are you the named personal representative or executor of the estate in the decedent's will?",
+    answer_options: "Yes,9040,null;No,9039,null;",
+    info_checklist_item: "",
+    always_jump_to: "",
+    description: "",
+    skip_if_already_shown: "",
+    multiselect_group: "",
+  },
+  {
+    uid: 9039,
+    topic: "",
+    type: "info",
+    vendors_suggestion: "",
+    name: "Personal Representative Info",
+    answer_options: "",
+    info_checklist_item: "wa_Personal-Representative",
+    always_jump_to: 9040,
+    description:
+      "In most cases the Personal Representative of the estate will be the one that files all paperwork and gathers the decedent's assets, gives notice to creditors, pays decedent's debts, and distributes decedent's assets. Be sure to coordinate your assistance with the Personal Representative.",
+    skip_if_already_shown: "",
+    multiselect_group: "",
+  },
+  {
+    uid: 9040,
+    topic: "",
+    type: "info",
+    vendors_suggestion: "",
+    name: "What's Next",
+    answer_options: "",
+    info_checklist_item: "",
+    always_jump_to: 41,
+    description:
+      "This checklist will walk you through several categories relevant to settling the estate. At the end, you'll have a personalized list of what to handle next, based on your specific situation.",
+    skip_if_already_shown: "",
+    multiselect_group: "",
+  },
+];
+/** uid 5-40's "no valid will" walk through this content is WA-specific — so is this clone of it. */
+const PERSONAL_REP_WILL_VARIANT_UIDS = new Set(
+  PERSONAL_REP_WILL_VARIANT_ROWS.map((row) => row.uid),
+);
+
+/**
+ * The no-will path's own "What's Next" (uid 40) previously read as if
+ * everyone had just walked through Washington's intestate-succession
+ * rules — true for that path, but uid 5's "Yes" (valid will exists) also
+ * converged here despite never seeing any of that content. Now that Yes
+ * has its own uid 9040 (see PERSONAL_REP_WILL_VARIANT_ROWS), this only
+ * needs to read correctly for the no-will path itself.
+ */
+const DESCRIPTION_OVERRIDES: Record<number, string> = {
+  40: "You now have a picture of how Washington law would handle this estate. From here, this checklist will walk you through everything else that needs to happen — starting with the most time-sensitive matters first. At the end, you'll have a personalized list of what to handle next, based on your specific situation.",
 };
 
 /**
@@ -296,7 +373,7 @@ function extractLinks(text: string): { cleaned: string; links: string[] } {
 }
 
 export async function seedXlsx() {
-  const rows = readRows();
+  const rows = [...readRows(), ...PERSONAL_REP_WILL_VARIANT_ROWS];
   const byUid = new Map(rows.map((r) => [r.uid, r]));
   const allUids = rows.map((r) => r.uid).sort((a, b) => a - b);
 
@@ -568,12 +645,14 @@ export async function seedXlsx() {
   // --- Questions + answer options ---------------------------------------
   for (const row of rows) {
     if (EXCLUDED_QUESTION_UIDS.has(row.uid)) continue;
-    const isWaSpecific = row.uid >= WA_JURISDICTION_UID_RANGE[0] && row.uid <= WA_JURISDICTION_UID_RANGE[1];
+    const isWaSpecific =
+      (row.uid >= WA_JURISDICTION_UID_RANGE[0] && row.uid <= WA_JURISDICTION_UID_RANGE[1]) ||
+      PERSONAL_REP_WILL_VARIANT_UIDS.has(row.uid);
     const hasRealOptions = row.type === "bool" || row.type === "select";
     // Kept as raw text (markdown links intact) — QuestionCard/MultiselectGroupCard
     // render it through <LinkedText>, unlike ChecklistItem's description below,
     // which has links extracted into its own relatedLinks list instead.
-    const description = row.description || null;
+    const description = DESCRIPTION_OVERRIDES[row.uid] ?? (row.description || null);
     const multiselectGroup = MULTISELECT_GROUP_FIXES[row.uid] ?? (row.multiselect_group || null);
 
     await prisma.question.upsert({
