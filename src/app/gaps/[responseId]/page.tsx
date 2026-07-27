@@ -3,12 +3,14 @@ import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { requireDisclaimerAccepted } from "@/lib/disclaimer";
 import {
   groupByCategory,
   resolveTriggeredItems,
   type SurveyAnswers,
 } from "@/lib/survey-engine";
 import { searchYelpBusinesses } from "@/lib/yelp";
+import { articleFor } from "@/lib/grammar";
 import { VendorRecommendations } from "@/components/vendors/vendor-recommendations";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +26,7 @@ export default async function GapsPage({
   if (!session?.user?.id) {
     redirect(`/login?callbackUrl=${encodeURIComponent(`/gaps/${responseId}`)}`);
   }
+  await requireDisclaimerAccepted(session.user.id, `/gaps/${responseId}`);
 
   const response = await prisma.surveyResponse.findUnique({
     where: { id: responseId },
@@ -61,7 +64,7 @@ export default async function GapsPage({
     await Promise.all(
       Array.from(vendorCategories.values()).map(async (category) => {
         const businesses = await searchYelpBusinesses(
-          category.name,
+          category.yelpSearchTerm,
           response.zipCode,
         );
         return [category.id, businesses] as const;
@@ -96,10 +99,12 @@ export default async function GapsPage({
               {gap.vendorCategory ? (
                 <div className="mt-2 rounded-md bg-black/5 p-3 text-sm dark:bg-white/10">
                   <p className="mb-2 font-medium">
-                    Need a {gap.vendorCategory.name.toLowerCase()}?
+                    Need {articleFor(gap.vendorCategory.singularName)}{" "}
+                    {gap.vendorCategory.singularName}?
                   </p>
                   <VendorRecommendations
                     categoryName={gap.vendorCategory.name}
+                    searchTerm={gap.vendorCategory.yelpSearchTerm}
                     businesses={
                       vendorResultsByCategoryId.get(gap.vendorCategory.id) ?? []
                     }

@@ -9,6 +9,7 @@ import {
   type SurveyAnswers,
 } from "@/lib/survey-engine";
 import { searchYelpBusinesses, type YelpBusiness } from "@/lib/yelp";
+import { articleFor } from "@/lib/grammar";
 
 const styles = StyleSheet.create({
   page: { padding: 32, fontSize: 11 },
@@ -27,18 +28,24 @@ const styles = StyleSheet.create({
 
 function VendorSection({
   categoryName,
+  singularName,
+  searchTerm,
   businesses,
 }: {
   categoryName: string;
+  singularName: string;
+  searchTerm: string;
   businesses: YelpBusiness[];
 }) {
   return (
     <View style={styles.vendorBox}>
-      <Text style={styles.vendorHeading}>Need a {categoryName.toLowerCase()}?</Text>
+      <Text style={styles.vendorHeading}>
+        Need {articleFor(singularName)} {singularName}?
+      </Text>
       {businesses.length === 0 ? (
         <Link
           style={styles.link}
-          src={`https://www.yelp.com/search?find_desc=${encodeURIComponent(categoryName)}`}
+          src={`https://www.yelp.com/search?find_desc=${encodeURIComponent(searchTerm)}`}
         >
           Search Yelp for {categoryName}
         </Link>
@@ -107,7 +114,7 @@ export async function GET(
   const vendorResultsByCategoryId = new Map(
     await Promise.all(
       Array.from(vendorCategories.values()).map(async (category) => {
-        const businesses = await searchYelpBusinesses(category.name, response.zipCode);
+        const businesses = await searchYelpBusinesses(category.yelpSearchTerm, response.zipCode);
         return [category.id, businesses] as const;
       }),
     ),
@@ -142,6 +149,8 @@ export async function GET(
                 {item.vendorCategory ? (
                   <VendorSection
                     categoryName={item.vendorCategory.name}
+                    singularName={item.vendorCategory.singularName}
+                    searchTerm={item.vendorCategory.yelpSearchTerm}
                     businesses={vendorResultsByCategoryId.get(item.vendorCategory.id) ?? []}
                   />
                 ) : null}

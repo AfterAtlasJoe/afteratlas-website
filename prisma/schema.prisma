@@ -307,10 +307,21 @@ model GapTrigger {
 /// Burial Plot Providers, Grief Counselors, Family Therapists, Financial
 /// Advisors, Obituary Providers.
 model VendorCategory {
-  id          String  @id @default(cuid())
-  slug        String  @unique
-  name        String
-  description String?
+  id             String  @id @default(cuid())
+  slug           String  @unique
+  /// Display name, plural (e.g. "Probate lawyers") — used as a page heading.
+  name           String
+  /// Singular form (e.g. "probate lawyer"), used in "Need a ...?"
+  /// copy — a naive `name.toLowerCase()` there reads as "Need a probate
+  /// lawyers?", which isn't just informal, it's grammatically wrong.
+  singularName   String
+  /// What's actually sent to Yelp's search API — tuned to match how
+  /// Yelp categorizes these businesses, which isn't always the same
+  /// wording that reads best on the page. "Estate sale providers" (the
+  /// display name) returned electricians and house cleaners on Yelp;
+  /// "estate sale company" doesn't.
+  yelpSearchTerm String
+  description    String?
 
   vendors        Vendor[]
   checklistItems ChecklistItem[]
@@ -362,6 +373,13 @@ model User {
   name          String?
   emailVerified DateTime?
   image         String?
+
+  /// Set the moment the user accepts the "organizational tool, not
+  /// professional advice" disclaimer — at registration for new accounts,
+  /// or via the /disclaimer gate for accounts created before this existed.
+  /// Null means not yet accepted; every protected page checks this before
+  /// rendering (see src/lib/disclaimer.ts).
+  disclaimerAcceptedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

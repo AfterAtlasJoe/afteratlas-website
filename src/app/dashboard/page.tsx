@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { requireDisclaimerAccepted } from "@/lib/disclaimer";
 import { SurveyResponseCard } from "@/components/dashboard/survey-response-card";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,7 @@ export default async function DashboardPage() {
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=%2Fdashboard");
   }
+  await requireDisclaimerAccepted(session.user.id, "/dashboard");
 
   const responses = await prisma.surveyResponse.findMany({
     where: { userId: session.user.id },

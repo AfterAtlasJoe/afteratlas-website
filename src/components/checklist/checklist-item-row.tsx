@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { VendorRecommendations } from "@/components/vendors/vendor-recommendations";
+import { articleFor } from "@/lib/grammar";
 import type { YelpBusiness } from "@/lib/yelp";
 
 type ChecklistItemRowProps = {
@@ -12,7 +13,12 @@ type ChecklistItemRowProps = {
     title: string;
     description: string;
     relatedLinks: string[];
-    vendorCategory: { id: string; name: string } | null;
+    vendorCategory: {
+      id: string;
+      name: string;
+      singularName: string;
+      yelpSearchTerm: string;
+    } | null;
   };
   businesses: YelpBusiness[];
   completed: boolean;
@@ -90,10 +96,12 @@ export function ChecklistItemRow({
           {item.vendorCategory ? (
             <div className="mt-2 rounded-md bg-black/5 p-3 text-sm dark:bg-white/10">
               <p className="mb-2 font-medium">
-                Need a {item.vendorCategory.name.toLowerCase()}?
+                Need {articleFor(item.vendorCategory.singularName)}{" "}
+                {item.vendorCategory.singularName}?
               </p>
               <VendorRecommendations
                 categoryName={item.vendorCategory.name}
+                searchTerm={item.vendorCategory.yelpSearchTerm}
                 businesses={businesses}
               />
             </div>

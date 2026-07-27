@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { requireDisclaimerAccepted } from "@/lib/disclaimer";
 import { findActiveSurveyResponse } from "@/lib/survey-responses";
 import type { SurveyMode } from "@/generated/prisma/client";
 
@@ -34,6 +35,10 @@ export async function SurveyPage({
       `/login?callbackUrl=${encodeURIComponent(`${loginCallbackBasePath}/${eventTypeId}`)}`,
     );
   }
+  await requireDisclaimerAccepted(
+    session.user.id,
+    `${loginCallbackBasePath}/${eventTypeId}`,
+  );
 
   const eventType = await prisma.eventType.findUnique({
     where: { id: eventTypeId, active: true },
@@ -87,7 +92,11 @@ export async function SurveyPage({
     order: q.order,
     multiselectGroup: q.multiselectGroup,
     vendorCategory: q.vendorCategory
-      ? { slug: q.vendorCategory.slug, name: q.vendorCategory.name }
+      ? {
+          slug: q.vendorCategory.slug,
+          name: q.vendorCategory.name,
+          yelpSearchTerm: q.vendorCategory.yelpSearchTerm,
+        }
       : null,
     answerOptions: q.answerOptions,
   }));

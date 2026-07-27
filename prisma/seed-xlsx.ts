@@ -280,14 +280,19 @@ function parseAnswerOptions(raw: string): ParsedOption[] {
 
 const LINK_PATTERN = /\[([^\]]+)\]\(([^)]+)\)/g;
 
-/** Extracts `[label](url)` links from text, returning the urls and the text with each link replaced by its bare label. */
+/**
+ * Extracts `[label](url)` links from text, returning the urls (deduped —
+ * some descriptions repeat the same link for two scenarios, e.g. Filing
+ * the Will's executor/non-executor cases both point at the same form)
+ * and the text with each link replaced by its bare label.
+ */
 function extractLinks(text: string): { cleaned: string; links: string[] } {
   const links: string[] = [];
   const cleaned = text.replace(LINK_PATTERN, (_match, label, url) => {
     links.push(url);
     return label;
   });
-  return { cleaned, links };
+  return { cleaned, links: [...new Set(links)] };
 }
 
 export async function seedXlsx() {
@@ -391,6 +396,39 @@ export async function seedXlsx() {
   console.log(`Seeded ${TOPIC_BUCKETS.length} topic buckets`);
 
   // --- Vendor categories -----------------------------------------------
+  // Explicit singular forms for "Need a ...?" copy — name.toLowerCase()
+  // alone reads as "Need a probate lawyers?" (grammatically wrong, not
+  // just informal), and simple trailing-s stripping is too fragile to
+  // trust for names this hardcodes control over instead.
+  const VENDOR_CATEGORY_SINGULAR_NAMES: Record<string, string> = {
+    "Burial plot providers": "burial plot provider",
+    "Crematorium Providers": "crematorium provider",
+    "Funeral homes": "funeral home",
+    "Probate lawyers": "probate lawyer",
+    Realtors: "realtor",
+    "Estate sale providers": "estate sale provider",
+    "Grief counsellors": "grief counsellor",
+  };
+  /**
+   * What's actually sent to Yelp's search API — tuned by hand to match
+   * how Yelp categorizes these businesses (see Yelp's category list at
+   * https://docs.developer.yelp.com/docs/resources-categories), since
+   * that isn't always the wording that reads best on the page. Sending
+   * the plain display name for "Estate sale providers" returned
+   * electricians and house cleaners; "estate liquidation" (Yelp's own
+   * category name for this) doesn't. Falls back to the display name
+   * (lowercased) for any category not listed here.
+   */
+  const VENDOR_CATEGORY_YELP_TERMS: Record<string, string> = {
+    "Burial plot providers": "cemetery",
+    "Crematorium Providers": "crematorium",
+    "Funeral homes": "funeral home",
+    "Probate lawyers": "probate attorney",
+    Realtors: "real estate agent",
+    "Estate sale providers": "estate liquidation",
+    "Grief counsellors": "grief counseling",
+  };
+
   const vendorCategoriesByNumber = new Map<string, { slug: string; name: string }>();
   for (const row of rows) {
     if (!row.vendors_suggestion) continue;
@@ -401,10 +439,20 @@ export async function seedXlsx() {
     }
   }
   for (const category of vendorCategoriesByNumber.values()) {
+    const singularName =
+      VENDOR_CATEGORY_SINGULAR_NAMES[category.name] ?? category.name.toLowerCase();
+    const yelpSearchTerm =
+      VENDOR_CATEGORY_YELP_TERMS[category.name] ?? category.name.toLowerCase();
     await prisma.vendorCategory.upsert({
       where: { slug: category.slug },
-      create: { id: category.slug, slug: category.slug, name: category.name },
-      update: { name: category.name },
+      create: {
+        id: category.slug,
+        slug: category.slug,
+        name: category.name,
+        singularName,
+        yelpSearchTerm,
+      },
+      update: { name: category.name, singularName, yelpSearchTerm },
     });
   }
   console.log(`Seeded ${vendorCategoriesByNumber.size} vendor categories`);

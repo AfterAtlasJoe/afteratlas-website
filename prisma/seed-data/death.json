@@ -10,18 +10,24 @@
       "id": "realtors",
       "slug": "realtors",
       "name": "Realtors",
+      "singularName": "realtor",
+      "yelpSearchTerm": "real estate agent",
       "description": "Help selling or renting an inherited property."
     },
     {
       "id": "probate-lawyers",
       "slug": "probate-lawyers",
       "name": "Probate Lawyers",
+      "singularName": "probate lawyer",
+      "yelpSearchTerm": "probate attorney",
       "description": "Estate and probate attorneys."
     },
     {
       "id": "financial-advisors",
       "slug": "financial-advisors",
       "name": "Financial Advisors",
+      "singularName": "financial advisor",
+      "yelpSearchTerm": "financial advisor",
       "description": "Help with life insurance claims, inherited accounts, and financial planning."
     }
   ],

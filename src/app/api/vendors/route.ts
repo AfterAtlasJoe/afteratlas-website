@@ -31,6 +31,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unknown category" }, { status: 404 });
   }
 
-  const businesses = await searchYelpBusinesses(category.name, zip);
+  const businesses = await searchYelpBusinesses(category.yelpSearchTerm, zip);
   return NextResponse.json({ businesses });
 }
