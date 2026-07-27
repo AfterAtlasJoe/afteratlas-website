@@ -167,14 +167,28 @@ considered done.
 ### Vendors
 
 Vendor recommendations come from the Yelp Fusion API (`src/lib/yelp.ts`),
-not the static `Vendor` table — searched by `VendorCategory.name` and the
-zip code collected on the "name this survey" screen at the very start
-(`NewSurveyForm`, stored as `SurveyResponse.zipCode`). `/checklist/[responseId]`,
+not the static `Vendor` table — searched by `VendorCategory.yelpSearchTerm`
+and the zip code collected on the "name this survey" screen at the very
+start (`NewSurveyForm`, stored as `SurveyResponse.zipCode`). `/checklist/[responseId]`,
 `/gaps/[responseId]`, and `/vendors/[category]` all render through the same
 `<VendorRecommendations>` component, which falls back to a plain "search
 Yelp yourself" link whenever there's no zip code, no `YELP_API_KEY`, or the
 API call fails for any reason — vendor lookups never break the page. Set
 `YELP_API_KEY` in the environment to enable real results (see `.env.example`).
+
+`VendorCategory` has three name-shaped fields with distinct jobs, since one
+string can't do all of them correctly:
+- `name` — plural display form ("Probate lawyers"), used as a page heading.
+- `singularName` — used in "Need a/an ...?" copy. `name.toLowerCase()`
+  there read as "Need a probate lawyers?" (wrong plurality) and, even
+  fixed to singular, "Need a estate sale provider?" (wrong article) —
+  `src/lib/grammar.ts`'s `articleFor()` picks a/an generically from the
+  singular form.
+- `yelpSearchTerm` — sent to Yelp's search API, tuned to match Yelp's own
+  category names (see https://docs.developer.yelp.com/docs/resources-categories)
+  rather than the display name: querying "Estate sale providers" verbatim
+  returned electricians and house cleaners; "estate liquidation" (Yelp's
+  actual category for this) doesn't.
 
 ### Checklist interactivity and PDF export
 

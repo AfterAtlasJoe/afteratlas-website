@@ -11,7 +11,12 @@ type ChecklistItemData = {
   title: string;
   description: string;
   relatedLinks: string[];
-  vendorCategory: { id: string; name: string } | null;
+  vendorCategory: {
+    id: string;
+    name: string;
+    singularName: string;
+    yelpSearchTerm: string;
+  } | null;
 };
 
 type ChecklistBodyProps = {

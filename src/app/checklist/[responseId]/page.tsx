@@ -61,7 +61,7 @@ export default async function ChecklistPage({
     await Promise.all(
       Array.from(vendorCategories.values()).map(async (category) => {
         const businesses = await searchYelpBusinesses(
-          category.name,
+          category.yelpSearchTerm,
           response.zipCode,
         );
         return [category.id, businesses] as const;

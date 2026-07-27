@@ -23,7 +23,7 @@ export default async function VendorsPage({
     notFound();
   }
 
-  const businesses = await searchYelpBusinesses(vendorCategory.name, zip);
+  const businesses = await searchYelpBusinesses(vendorCategory.yelpSearchTerm, zip);
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-12">
@@ -36,6 +36,7 @@ export default async function VendorsPage({
 
       <VendorRecommendations
         categoryName={vendorCategory.name}
+        searchTerm={vendorCategory.yelpSearchTerm}
         businesses={businesses}
       />
     </div>

@@ -17,6 +17,6 @@ export type QuestionData = {
   /** Rows sharing a value here render as one "select all that apply" screen instead of sequential single-question screens. */
   multiselectGroup: string | null;
   /** Set when this question's own copy references vendor recommendations directly (see Question.vendorCategoryId). */
-  vendorCategory: { slug: string; name: string } | null;
+  vendorCategory: { slug: string; name: string; yelpSearchTerm: string } | null;
   answerOptions: AnswerOptionData[];
 };

@@ -87,7 +87,11 @@ export async function SurveyPage({
     order: q.order,
     multiselectGroup: q.multiselectGroup,
     vendorCategory: q.vendorCategory
-      ? { slug: q.vendorCategory.slug, name: q.vendorCategory.name }
+      ? {
+          slug: q.vendorCategory.slug,
+          name: q.vendorCategory.name,
+          yelpSearchTerm: q.vendorCategory.yelpSearchTerm,
+        }
       : null,
     answerOptions: q.answerOptions,
   }));

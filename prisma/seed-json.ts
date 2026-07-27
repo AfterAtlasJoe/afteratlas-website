@@ -54,6 +54,8 @@ type SeedVendorCategory = {
   id: string;
   slug: string;
   name: string;
+  singularName: string;
+  yelpSearchTerm: string;
   description?: string;
 };
 type SeedVendor = {

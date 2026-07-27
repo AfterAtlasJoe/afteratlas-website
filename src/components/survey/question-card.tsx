@@ -61,6 +61,7 @@ export function QuestionCard({
         <div className="rounded-md bg-black/5 p-3 text-sm dark:bg-white/10">
           <VendorRecommendations
             categoryName={question.vendorCategory.name}
+            searchTerm={question.vendorCategory.yelpSearchTerm}
             businesses={businesses}
           />
         </div>
