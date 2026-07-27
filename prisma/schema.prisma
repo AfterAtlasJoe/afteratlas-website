@@ -342,6 +342,9 @@ model SurveyResponse {
   eventType   EventType  @relation(fields: [eventTypeId], references: [id])
   mode        SurveyMode
 
+  /// User-chosen name, set when starting the survey and editable later from the dashboard.
+  title String?
+
   /// question_id -> answer_option_id
   answers Json @default("{}")
 

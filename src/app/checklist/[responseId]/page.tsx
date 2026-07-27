@@ -56,7 +56,7 @@ export default async function ChecklistPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">
-            Your {response.eventType.name} checklist
+            {response.title ?? `Your ${response.eventType.name} checklist`}
           </h1>
           <p className="text-sm text-zinc-500">
             {triggered.length} task{triggered.length === 1 ? "" : "s"} based on

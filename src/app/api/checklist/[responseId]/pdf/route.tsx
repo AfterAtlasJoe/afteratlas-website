@@ -52,7 +52,9 @@ export async function GET(
   const buffer = await renderToBuffer(
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.title}>{response.eventType.name} checklist</Text>
+        <Text style={styles.title}>
+          {response.title ?? `${response.eventType.name} checklist`}
+        </Text>
         {Array.from(grouped.entries()).map(([category, items]) => (
           <View key={category}>
             <Text style={styles.category}>{category}</Text>
