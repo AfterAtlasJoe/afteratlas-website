@@ -8,6 +8,7 @@ import { jurisdictionForZip, resolvedChecklistText } from "@/lib/jurisdiction";
 import {
   groupByCategory,
   resolveTriggeredItems,
+  sortCategoriesByDisplayOrder,
   type SurveyAnswers,
 } from "@/lib/survey-engine";
 import { searchYelpBusinesses } from "@/lib/yelp";
@@ -40,13 +41,18 @@ export default async function ChecklistPage({
     notFound();
   }
 
-  const checklistItems = await prisma.checklistItem.findMany({
-    where: { eventTypeId: response.eventTypeId },
-    include: {
-      triggers: { select: { questionId: true, answerOptionId: true } },
-      vendorCategory: true,
-    },
-  });
+  const [checklistItems, topicBuckets] = await Promise.all([
+    prisma.checklistItem.findMany({
+      where: { eventTypeId: response.eventTypeId },
+      include: {
+        triggers: { select: { questionId: true, answerOptionId: true } },
+        vendorCategory: true,
+      },
+    }),
+    prisma.topicBucket.findMany({
+      where: { eventTypeId: response.eventTypeId, mode: response.mode },
+    }),
+  ]);
 
   const jurisdictionId = jurisdictionForZip(response.zipCode);
   const triggered = resolveTriggeredItems(
@@ -54,6 +60,10 @@ export default async function ChecklistPage({
     (response.answers as SurveyAnswers) ?? {},
   ).map((item) => ({ ...item, ...resolvedChecklistText(item, jurisdictionId) }));
   const grouped = groupByCategory(triggered);
+  const orderedCategories = sortCategoriesByDisplayOrder(
+    [...grouped.keys()],
+    topicBuckets,
+  );
 
   const vendorCategories = new Map(
     triggered
@@ -94,9 +104,9 @@ export default async function ChecklistPage({
       ) : (
         <ChecklistBody
           responseId={responseId}
-          groups={Array.from(grouped.entries()).map(([category, items]) => ({
+          groups={orderedCategories.map((category) => ({
             category,
-            items,
+            items: grouped.get(category)!,
           }))}
           vendorResultsByCategoryId={vendorResultsByCategoryId}
           totalCount={triggered.length}

@@ -7,6 +7,7 @@ import { requireDisclaimerAccepted } from "@/lib/disclaimer";
 import {
   groupByCategory,
   resolveTriggeredItems,
+  sortCategoriesByDisplayOrder,
   type SurveyAnswers,
 } from "@/lib/survey-engine";
 import { searchYelpBusinesses } from "@/lib/yelp";
@@ -40,19 +41,25 @@ export default async function GapsPage({
     notFound();
   }
 
-  const gaps = await prisma.gap.findMany({
-    where: { eventTypeId: response.eventTypeId },
-    include: {
-      triggers: { select: { questionId: true, answerOptionId: true } },
-      vendorCategory: true,
-    },
-  });
+  const [gaps, topicBuckets] = await Promise.all([
+    prisma.gap.findMany({
+      where: { eventTypeId: response.eventTypeId },
+      include: {
+        triggers: { select: { questionId: true, answerOptionId: true } },
+        vendorCategory: true,
+      },
+    }),
+    prisma.topicBucket.findMany({
+      where: { eventTypeId: response.eventTypeId, mode: response.mode },
+    }),
+  ]);
 
   const triggered = resolveTriggeredItems(
     gaps,
     (response.answers as SurveyAnswers) ?? {},
   );
   const grouped = groupByCategory(triggered);
+  const orderedCategories = sortCategoriesByDisplayOrder([...grouped.keys()], topicBuckets);
 
   const vendorCategories = new Map(
     triggered
@@ -84,10 +91,10 @@ export default async function GapsPage({
         </p>
       </div>
 
-      {Array.from(grouped.entries()).map(([category, items]) => (
+      {orderedCategories.map((category) => (
         <section key={category} className="flex flex-col gap-4">
           <h2 className="text-lg font-medium">{category}</h2>
-          {items.map((gap) => (
+          {grouped.get(category)!.map((gap) => (
             <div
               key={gap.id}
               className="flex flex-col gap-2 rounded-lg border border-black/10 p-4 dark:border-white/10"

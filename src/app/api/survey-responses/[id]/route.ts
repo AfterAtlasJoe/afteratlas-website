@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { jurisdictionForZip, resolvedChecklistText } from "@/lib/jurisdiction";
 import {
   advanceSurvey,
+  bucketCategoryOrder,
   resolveTriggeredItems,
   type SurveyAnswers,
 } from "@/lib/survey-engine";
@@ -238,15 +239,7 @@ export async function PATCH(
   // Visit order once inside the bucketed portion: each TopicBucket's own
   // `order`, then that bucket's `categories` array order — matching the
   // bucket picker and section nav rather than the spreadsheet's tour.
-  const categoryOrder = new Map<string, number>();
-  let categoryOrderCursor = 0;
-  for (const bucket of topicBuckets.slice().sort((a, b) => a.order - b.order)) {
-    for (const category of bucket.categories) {
-      if (!categoryOrder.has(category)) {
-        categoryOrder.set(category, categoryOrderCursor++);
-      }
-    }
-  }
+  const categoryOrder = bucketCategoryOrder(topicBuckets);
 
   const answersBefore: SurveyAnswers = (response.answers as SurveyAnswers) ?? {};
   const triggeredBefore = new Set(

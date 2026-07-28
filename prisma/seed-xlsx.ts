@@ -283,6 +283,9 @@ const GENERAL_INTESTATE_VARIANT_UIDS = new Set(
 const DESCRIPTION_OVERRIDES: Record<number, string> = {
   40: "You now have a picture of how Washington law would handle this estate. From here, this checklist will walk you through everything else that needs to happen — starting with the most time-sensitive matters first. At the end, you'll have a personalized list of what to handle next, based on your specific situation.",
   38: "Even without a will, courts still appoint someone (called a personal representative) to administer the estate. If that hasn't happened yet, or you're not sure, choose Unknown.",
+  // Originally just "for King County" — unclear that's a Washington
+  // State county specifically, not a generic placeholder example.
+  80: "This needs to be handled by county, but [here](https://www.kingcounty.gov/~/media/depts/elections/how-to-vote/register-to-vote/cancel-a-registration/deceased-voter-registration-cancellation-form-en.ashx?la=en) is an example of what's required for King County, Washington State — check with your own county for its specific form.",
 };
 
 /**
@@ -466,6 +469,10 @@ const QUESTION_GENERAL_OVERRIDES: Record<number, { prompt?: string; description?
     description:
       "Some states levy their own estate tax separate from the federal estate tax, often with a lower exemption threshold. Check with your state's department of revenue or a local tax professional to see if this applies and what, if anything, is owed.",
   },
+  80: {
+    description:
+      "Canceling voter registration is typically handled at the county (or equivalent local) level, and the process varies by state. Check your county or state elections office's website for the specific form or process.",
+  },
 };
 
 /**
@@ -509,6 +516,10 @@ const CHECKLIST_ITEM_GENERAL_OVERRIDES: Record<
   "wa_job-related": {
     description:
       "If the death was work-related, workers' compensation death benefits may be available. Check with your state's workers' compensation agency or the employer's insurer.",
+  },
+  "wa_voters-registrar": {
+    description:
+      "Canceling voter registration is typically handled at the county (or equivalent local) level, and the process varies by state. Check your county or state elections office's website for the specific form or process.",
   },
 };
 
@@ -828,7 +839,12 @@ export async function seedXlsx() {
   // --- Checklist items (created before Questions so skipIfChecklistItemShownId can reference them) ---
   for (const row of rows) {
     if (!row.info_checklist_item) continue;
-    const { cleaned, links } = extractLinks(row.description || "");
+    // DESCRIPTION_OVERRIDES applies here too — the row's own description
+    // feeds both the Question shown mid-survey and the ChecklistItem
+    // shown on the final checklist; they'd otherwise silently diverge.
+    const { cleaned, links } = extractLinks(
+      DESCRIPTION_OVERRIDES[row.uid] ?? (row.description || ""),
+    );
     const generalOverride = CHECKLIST_ITEM_GENERAL_OVERRIDES[row.info_checklist_item];
     await prisma.checklistItem.upsert({
       where: { id: row.info_checklist_item },
