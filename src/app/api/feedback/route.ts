@@ -15,6 +15,18 @@ export async function POST(request: NextRequest) {
   const surveyResponseId: string | undefined = body.surveyResponseId || undefined;
   const page: string | undefined = body.page || undefined;
 
+  let rating: number | undefined;
+  if (body.rating !== undefined && body.rating !== null && body.rating !== "") {
+    const parsed = Number(body.rating);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 5) {
+      return NextResponse.json(
+        { error: "Rating must be a whole number from 1 to 5" },
+        { status: 400 },
+      );
+    }
+    rating = parsed;
+  }
+
   // Honeypot: a field named to tempt form-filling bots, hidden from real
   // visitors via CSS rather than `display:none` (which some bots skip
   // over). Any value here means it wasn't a human — pretend success so the
@@ -66,6 +78,7 @@ export async function POST(request: NextRequest) {
   await prisma.feedback.create({
     data: {
       message,
+      rating,
       email: session?.user?.id ? undefined : email,
       userId: session?.user?.id ?? undefined,
       surveyResponseId: verifiedSurveyResponseId,

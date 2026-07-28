@@ -546,6 +546,10 @@ model Feedback {
   id      String  @id @default(cuid())
   message String
 
+  /// "How useful was this site?" 1 (not at all) to 5 (extremely helpful).
+  /// Optional — same as email, not required to submit feedback.
+  rating Int?
+
   /// Only set for anonymous submitters who chose to leave a way to reply.
   email String?
 

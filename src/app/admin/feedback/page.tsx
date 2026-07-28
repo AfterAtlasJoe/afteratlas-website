@@ -26,6 +26,12 @@ export default async function AdminFeedbackPage() {
     orderBy: { createdAt: "desc" },
   });
 
+  const ratings = feedback
+    .map((item) => item.rating)
+    .filter((rating): rating is number => rating !== null);
+  const avgRating =
+    ratings.length > 0 ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : null;
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-12">
       <div>
@@ -35,6 +41,9 @@ export default async function AdminFeedbackPage() {
         <h1 className="mt-2 text-2xl font-semibold">Feedback</h1>
         <p className="mt-1 text-sm text-zinc-500">
           {feedback.length} submission{feedback.length === 1 ? "" : "s"} total.
+          {avgRating !== null
+            ? ` Average "how useful" rating: ${avgRating.toFixed(1)}/5 (${ratings.length} rated).`
+            : ""}
         </p>
       </div>
 
@@ -67,6 +76,11 @@ export default async function AdminFeedbackPage() {
                 </p>
                 <ReviewedToggle id={item.id} reviewed={Boolean(item.reviewedAt)} />
               </div>
+              {item.rating !== null ? (
+                <p className="text-xs font-medium text-accent-ink">
+                  Usefulness rating: {item.rating}/5
+                </p>
+              ) : null}
               <p className="whitespace-pre-line text-sm">{item.message}</p>
             </li>
           ))}
