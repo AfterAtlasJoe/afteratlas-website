@@ -114,9 +114,17 @@ export default async function ChecklistPage({
         />
       )}
 
-      <Link href="/dashboard" className="text-sm underline">
-        Back to dashboard
-      </Link>
+      <div className="flex items-center gap-4">
+        <Link href="/dashboard" className="text-sm underline">
+          Back to dashboard
+        </Link>
+        <Link
+          href={`/feedback?surveyResponseId=${responseId}&from=checklist`}
+          className="text-sm underline"
+        >
+          Leave feedback on this checklist
+        </Link>
+      </div>
     </div>
   );
 }

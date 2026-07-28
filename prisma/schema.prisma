@@ -373,6 +373,14 @@ model Vendor {
 // Users & auth (NextAuth-compatible)
 // ---------------------------------------------------------------------------
 
+enum AdminDigestFrequency {
+  off
+  instant
+  daily
+  weekly
+  monthly
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -388,6 +396,22 @@ model User {
   /// rendering (see src/lib/disclaimer.ts).
   disclaimerAcceptedAt DateTime?
 
+  /// Grants access to /admin. Managed by existing admins from within the
+  /// admin report itself (see src/app/admin/actions.ts) — not a general
+  /// role system, just this one flag.
+  isAdmin Boolean @default(false)
+
+  /// Whether a copy of the checklist gets emailed to this user when a
+  /// survey they own is completed. Editable from /profile.
+  receiveChecklistEmail Boolean @default(true)
+
+  /// Admin-only preference (harmless/unused on non-admin rows): how often
+  /// this admin wants a "new user signed up" email. `instant` sends one
+  /// right away per signup; the others are batched by the digest cron (see
+  /// src/app/api/cron/admin-digest/route.ts) using `digestLastSentAt`.
+  adminDigestFrequency AdminDigestFrequency @default(instant)
+  digestLastSentAt     DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -397,6 +421,7 @@ model User {
   surveyResponses SurveyResponse[]
   ownedPlans      Plan[]           @relation("PlanOwner")
   planMemberships PlanMember[]
+  feedback        Feedback[]
 
   @@map("users")
 }
@@ -502,10 +527,48 @@ model SurveyResponse {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  plan Plan?
+  plan     Plan?
+  feedback Feedback[]
 
   @@index([userId, eventTypeId, mode])
   @@map("survey_responses")
+}
+
+// ---------------------------------------------------------------------------
+// Feedback
+// ---------------------------------------------------------------------------
+
+/// Free-form feedback on the site or a specific survey/checklist, submitted
+/// from /feedback (linked from the footer and the checklist page). Open to
+/// anonymous visitors as well as signed-in users — `userId`/`email` are only
+/// populated when known.
+model Feedback {
+  id      String  @id @default(cuid())
+  message String
+
+  /// Only set for anonymous submitters who chose to leave a way to reply.
+  email String?
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  surveyResponseId String?
+  surveyResponse   SurveyResponse? @relation(fields: [surveyResponseId], references: [id], onDelete: SetNull)
+
+  /// Where the feedback was given from, e.g. "checklist" or "site" — purely
+  /// informational context for the admin reviewing it.
+  page String?
+
+  /// From x-forwarded-for, used for basic per-IP rate limiting on
+  /// submission (see src/app/api/feedback/route.ts) and shown to the admin
+  /// for spam triage. Not collected for any other purpose.
+  ipAddress String?
+
+  createdAt  DateTime  @default(now())
+  reviewedAt DateTime?
+
+  @@index([ipAddress, createdAt])
+  @@map("feedback")
 }
 
 // ---------------------------------------------------------------------------

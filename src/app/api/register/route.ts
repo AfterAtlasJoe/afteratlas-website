@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 
+import { notifyAdminsOfNewSignup } from "@/lib/notify-admins";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
@@ -36,6 +37,12 @@ export async function POST(request: NextRequest) {
     data: { email, passwordHash, name, disclaimerAcceptedAt: new Date() },
     select: { id: true, email: true, name: true },
   });
+
+  try {
+    await notifyAdminsOfNewSignup(user);
+  } catch (error) {
+    console.error("Failed to notify admins of new signup:", error);
+  }
 
   return NextResponse.json(user, { status: 201 });
 }

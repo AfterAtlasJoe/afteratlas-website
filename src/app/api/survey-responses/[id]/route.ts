@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
+import { buildChecklistEmail } from "@/lib/checklist-email";
+import { sendEmail } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 import { jurisdictionForZip, resolvedChecklistText } from "@/lib/jurisdiction";
 import {
@@ -306,6 +308,30 @@ export async function PATCH(
       ...(selectedCategoriesInput ? { selectedCategories: selectedCategoriesInput } : {}),
     },
   });
+
+  if (response.status !== "completed" && updated.status === "completed") {
+    const recipient = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { email: true, name: true, receiveChecklistEmail: true },
+    });
+    if (recipient?.receiveChecklistEmail) {
+      const itemTitles = checklistItems
+        .filter((item) => triggeredChecklistItemIds.has(item.id))
+        .map((item) => item.title);
+      const { subject, html } = buildChecklistEmail({
+        recipientName: recipient.name,
+        checklistTitle: updated.title ?? "Your checklist",
+        itemTitles,
+        checklistUrl: `${request.nextUrl.origin}/checklist/${id}`,
+        pdfUrl: `${request.nextUrl.origin}/api/checklist/${id}/pdf`,
+      });
+      try {
+        await sendEmail({ to: recipient.email, subject, html });
+      } catch (error) {
+        console.error("Failed to send checklist completion email:", error);
+      }
+    }
+  }
 
   return NextResponse.json({ ...updated, newlyTriggeredItems });
 }
