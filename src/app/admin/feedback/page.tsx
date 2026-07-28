@@ -52,6 +52,7 @@ export default async function AdminFeedbackPage() {
                   {item.user?.email ?? item.email ?? "Anonymous"} ·{" "}
                   {item.createdAt.toLocaleString()}
                   {item.page ? ` · ${item.page}` : ""}
+                  {item.ipAddress ? ` · ${item.ipAddress}` : ""}
                   {item.surveyResponse ? (
                     <>
                       {" · "}

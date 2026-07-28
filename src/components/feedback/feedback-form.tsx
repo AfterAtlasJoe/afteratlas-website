@@ -27,6 +27,7 @@ export function FeedbackForm({
       body: JSON.stringify({
         message: formData.get("message"),
         email: formData.get("email"),
+        company: formData.get("company"),
         surveyResponseId,
         page,
       }),
@@ -51,6 +52,16 @@ export function FeedbackForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {/* Honeypot — invisible to real visitors, tempting for bots that fill every field. */}
+      <label
+        aria-hidden="true"
+        tabIndex={-1}
+        className="absolute -left-[9999px] h-px w-px overflow-hidden"
+      >
+        Company
+        <input type="text" name="company" tabIndex={-1} autoComplete="off" />
+      </label>
+
       <label className="flex flex-col gap-1 text-sm">
         Your feedback
         <textarea

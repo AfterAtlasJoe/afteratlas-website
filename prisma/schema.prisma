@@ -559,9 +559,15 @@ model Feedback {
   /// informational context for the admin reviewing it.
   page String?
 
+  /// From x-forwarded-for, used for basic per-IP rate limiting on
+  /// submission (see src/app/api/feedback/route.ts) and shown to the admin
+  /// for spam triage. Not collected for any other purpose.
+  ipAddress String?
+
   createdAt  DateTime  @default(now())
   reviewedAt DateTime?
 
+  @@index([ipAddress, createdAt])
   @@map("feedback")
 }
 
