@@ -1,3 +1,7 @@
+import { articleFor } from "@/lib/grammar";
+import type { YelpBusiness } from "@/lib/yelp";
+import { VendorRecommendations } from "@/components/vendors/vendor-recommendations";
+
 import { LinkedText } from "./linked-text";
 
 export type TriggeredItemPreview = {
@@ -5,6 +9,12 @@ export type TriggeredItemPreview = {
   title: string;
   description: string;
   relatedLinks: string[];
+  vendorCategory: {
+    name: string;
+    singularName: string;
+    yelpSearchTerm: string;
+  } | null;
+  businesses: YelpBusiness[];
 };
 
 type TriggeredItemsSummaryProps = {
@@ -54,6 +64,19 @@ export function TriggeredItemsSummary({
                   </li>
                 ))}
               </ul>
+            ) : null}
+            {item.vendorCategory ? (
+              <div className="mt-2 rounded-md bg-black/5 p-3 text-sm dark:bg-white/10">
+                <p className="mb-2 font-medium">
+                  Need {articleFor(item.vendorCategory.singularName)}{" "}
+                  {item.vendorCategory.singularName}?
+                </p>
+                <VendorRecommendations
+                  categoryName={item.vendorCategory.name}
+                  searchTerm={item.vendorCategory.yelpSearchTerm}
+                  businesses={item.businesses}
+                />
+              </div>
             ) : null}
           </li>
         ))}

@@ -143,16 +143,31 @@ export function SurveyRunner({
     }
     return groups;
   }, [selectedCategories, visibleCategories, bucketedCategories, buckets]);
+  /**
+   * A category gets a checkmark once the user has moved past it — not
+   * once every question `Question.category` could ever include has an
+   * answer. Branching/skips mean most categories have several questions
+   * no single path through them ever reaches, so that stricter check
+   * almost never became true; this instead checks only the questions
+   * this session actually visited in that category (from `history`).
+   */
   const completedCategories = useMemo(() => {
     const complete = new Set<string>();
+    const currentCategory = questionsById.get(currentQuestionId)?.category;
     for (const category of visibleCategories) {
-      const inCategory = questions.filter((q) => q.category === category);
-      if (inCategory.every((q) => answers[q.id])) {
+      if (category === currentCategory) continue;
+      const visitedInCategory = history
+        .map((id) => questionsById.get(id))
+        .filter((q): q is QuestionData => q?.category === category);
+      if (
+        visitedInCategory.length > 0 &&
+        visitedInCategory.every((q) => Boolean(answers[q.id]))
+      ) {
         complete.add(category);
       }
     }
     return complete;
-  }, [visibleCategories, questions, answers]);
+  }, [visibleCategories, history, questionsById, answers, currentQuestionId]);
 
   /**
    * A rough "how much is left" gauge, scoped to the categories chosen at

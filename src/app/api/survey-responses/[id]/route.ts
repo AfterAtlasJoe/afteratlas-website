@@ -8,6 +8,7 @@ import {
   resolveTriggeredItems,
   type SurveyAnswers,
 } from "@/lib/survey-engine";
+import { searchYelpBusinesses } from "@/lib/yelp";
 
 type AnswerPair = { questionId: string; answerOptionId: string };
 
@@ -212,7 +213,10 @@ export async function PATCH(
     }),
     prisma.checklistItem.findMany({
       where: { eventTypeId: response.eventTypeId },
-      include: { triggers: { select: { questionId: true, answerOptionId: true } } },
+      include: {
+        triggers: { select: { questionId: true, answerOptionId: true } },
+        vendorCategory: true,
+      },
     }),
     prisma.topicBucket.findMany({
       where: { eventTypeId: response.eventTypeId, mode: response.mode },
@@ -262,16 +266,25 @@ export async function PATCH(
   // no per-question "info" screen in between (unlike the normal
   // one-at-a-time flow, where a triggered item's own info screen already
   // surfaces it). Surface anything newly triggered by this batch as a
-  // one-screen summary before advancing, so it doesn't pass by unseen.
+  // one-screen summary before advancing, so it doesn't pass by unseen —
+  // including live Yelp results for any item with its own vendorCategory,
+  // the same as the final checklist page shows, rather than leaving a
+  // "here's a list of..." reference with nothing behind it.
   const newlyTriggeredItems =
     pairs.length > 1
-      ? checklistItems
-          .filter((item) => triggeredChecklistItemIds.has(item.id) && !triggeredBefore.has(item.id))
-          .map((item) => ({
-            id: item.id,
-            title: item.title,
-            ...resolvedChecklistText(item, jurisdictionId),
-          }))
+      ? await Promise.all(
+          checklistItems
+            .filter((item) => triggeredChecklistItemIds.has(item.id) && !triggeredBefore.has(item.id))
+            .map(async (item) => ({
+              id: item.id,
+              title: item.title,
+              ...resolvedChecklistText(item, jurisdictionId),
+              vendorCategory: item.vendorCategory,
+              businesses: item.vendorCategory
+                ? await searchYelpBusinesses(item.vendorCategory.yelpSearchTerm, response.zipCode)
+                : [],
+            })),
+        )
       : [];
 
   const lastPair = pairs[pairs.length - 1];
