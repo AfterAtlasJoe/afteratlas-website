@@ -102,17 +102,24 @@ const ANSWER_OPTION_TARGET_FIXES: Record<string, number> = {
   "5:Yes": 40.1, // Route the "had a valid will" path to its own executor/What's-Next variant — see PERSONAL_REP_WILL_VARIANT_ROWS
   // uid 180's "No" (doesn't want a grief counselor) points backward to
   // uid 165 (Post-Death Benefits) — a stale pointer left over from before
-  // later categories were appended after Self Care. Harmless under the
-  // old tour-order engine (Self Care was always reached last uid-order
-  // too, and Post-Death Benefits' own content was already behind it), but
-  // under TopicBucket-order traversal it can re-enter an already-finished
-  // Post-Death Benefits and cycle indefinitely — found by simulating
-  // every branch of the all-buckets-selected walk. Redirect to uid 181
-  // instead (the same content "Yes" leads to) rather than leaving it
-  // unresolved — an unresolved target here would, per the documented
-  // next-in-order fallback, land on uid 181 anyway, so this just makes
-  // that explicit instead of relying on the fallback by accident.
+  // later categories were appended after Self Care. Redirected to uid 181
+  // instead so it doesn't re-enter an already-finished Post-Death Benefits
+  // and cycle indefinitely under TopicBucket-order traversal — but 181 is
+  // the "Grief Counsellors" recommendation screen (the same one "Yes"
+  // leads to), so this alone made both answers show the same
+  // recommendations. SKIP_QUESTION_IDS_FIXES below skips 181 for this
+  // specific branch so "No" still avoids the uid-165 cycle without
+  // actually showing it.
   "180:No": 181,
+};
+
+/**
+ * Per-branch skip lists — Question ids to exclude when walking forward
+ * from that specific answer, layered on top of ANSWER_OPTION_TARGET_FIXES
+ * (see "180:No" above). Keyed the same way: "uid:label".
+ */
+const SKIP_QUESTION_IDS_FIXES: Record<string, number[]> = {
+  "180:No": [181],
 };
 
 /**
@@ -991,6 +998,9 @@ export async function seedXlsx() {
         : resolvedAlwaysJumpTo(row);
       const answerOptionId = `${questionId(row.uid)}-opt-${index}`;
       const nextQuestionId = targetUid !== null ? questionId(targetUid) : null;
+      const skipQuestionIds = (SKIP_QUESTION_IDS_FIXES[`${row.uid}:${option.label}`] ?? []).map(
+        questionId,
+      );
 
       await prisma.questionBranch.upsert({
         where: {
@@ -1003,9 +1013,9 @@ export async function seedXlsx() {
           questionId: questionId(row.uid),
           answerOptionId,
           nextQuestionId,
-          skipQuestionIds: [],
+          skipQuestionIds,
         },
-        update: { nextQuestionId },
+        update: { nextQuestionId, skipQuestionIds },
       });
       branchCount++;
 
