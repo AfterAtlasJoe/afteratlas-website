@@ -1,7 +1,9 @@
 export function SiteFooter() {
   return (
-    <footer className="border-t border-black/10 py-8 text-center text-sm text-zinc-500 dark:border-white/10">
-      <p>&copy; {new Date().getFullYear()} After Atlas</p>
+    <footer className="bg-black py-8 text-white">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-center px-6 text-sm text-white/70 sm:justify-between">
+        <p>Copyright {new Date().getFullYear()} After Atlas. All Rights Reserved.</p>
+      </div>
     </footer>
   );
 }

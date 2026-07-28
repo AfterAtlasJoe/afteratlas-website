@@ -2,17 +2,29 @@ import Link from "next/link";
 
 import { auth, signOut } from "@/auth";
 
+import { NavLinks } from "./nav-links";
+
+/**
+ * Three-column layout (nav / logo / actions) mirroring afteratlas.com's
+ * header: no background of its own, so it blends into whatever the page
+ * behind it is (the blush hero on marketing pages, plain white elsewhere).
+ */
 export async function SiteHeader() {
   const session = await auth();
 
   return (
-    <header className="border-b border-black/10 dark:border-white/10">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-        <Link href="/" className="text-lg font-semibold">
+    <header>
+      <div className="mx-auto grid w-full max-w-6xl grid-cols-2 items-center gap-4 px-6 py-5 sm:grid-cols-[1fr_auto_1fr]">
+        <NavLinks />
+
+        <Link
+          href="/"
+          className="col-span-2 order-first text-center font-display text-lg font-semibold tracking-tight sm:order-none sm:col-span-1"
+        >
           After Atlas
         </Link>
-        <nav className="flex items-center gap-6 text-sm">
-          <Link href="/blog">Blog</Link>
+
+        <div className="flex items-center justify-end gap-4 text-sm font-medium">
           {session?.user ? (
             <>
               <Link href="/dashboard">Dashboard</Link>
@@ -22,18 +34,28 @@ export async function SiteHeader() {
                   await signOut();
                 }}
               >
-                <button type="submit" className="cursor-pointer">
+                <button
+                  type="submit"
+                  className="cursor-pointer rounded-full border border-accent bg-accent-light px-5 py-2 text-accent-ink"
+                >
                   Sign out
                 </button>
               </form>
             </>
           ) : (
             <>
-              <Link href="/login">Log in</Link>
-              <Link href="/register">Sign up</Link>
+              <Link href="/register" className="hidden sm:inline">
+                Sign up
+              </Link>
+              <Link
+                href="/login"
+                className="rounded-full border border-accent bg-accent-light px-5 py-2 text-accent-ink"
+              >
+                Sign in
+              </Link>
             </>
           )}
-        </nav>
+        </div>
       </div>
     </header>
   );
