@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { addAdmin, removeAdmin } from "@/app/admin/actions";
@@ -72,34 +73,36 @@ export default async function AdminPage() {
     notFound();
   }
 
-  const [responses, questions, checklistItems, admins] = await Promise.all([
-    prisma.surveyResponse.findMany({
-      select: {
-        id: true,
-        status: true,
-        mode: true,
-        zipCode: true,
-        answers: true,
-        selectedCategories: true,
-        lastQuestionId: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    }),
-    prisma.question.findMany({ select: { id: true, category: true } }),
-    prisma.checklistItem.findMany({
-      select: {
-        id: true,
-        title: true,
-        triggers: { select: { questionId: true, answerOptionId: true } },
-      },
-    }),
-    prisma.user.findMany({
-      where: { isAdmin: true },
-      select: { id: true, email: true },
-      orderBy: { createdAt: "asc" },
-    }),
-  ]);
+  const [responses, questions, checklistItems, admins, unreviewedFeedbackCount] =
+    await Promise.all([
+      prisma.surveyResponse.findMany({
+        select: {
+          id: true,
+          status: true,
+          mode: true,
+          zipCode: true,
+          answers: true,
+          selectedCategories: true,
+          lastQuestionId: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      prisma.question.findMany({ select: { id: true, category: true } }),
+      prisma.checklistItem.findMany({
+        select: {
+          id: true,
+          title: true,
+          triggers: { select: { questionId: true, answerOptionId: true } },
+        },
+      }),
+      prisma.user.findMany({
+        where: { isAdmin: true },
+        select: { id: true, email: true },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.feedback.count({ where: { reviewedAt: null } }),
+    ]);
 
   const stats = computeAdminAnalytics(responses, questions, checklistItems);
   const recentDays = stats.responsesPerDay.slice(-14);
@@ -107,12 +110,21 @@ export default async function AdminPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-12 px-6 py-12">
-      <div>
-        <h1 className="text-2xl font-semibold">Admin report</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          Built from survey response data already on file — see the note at
-          the bottom for what this doesn&apos;t cover.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Admin report</h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            Built from survey response data already on file — see the note at
+            the bottom for what this doesn&apos;t cover.
+          </p>
+        </div>
+        <Link
+          href="/admin/feedback"
+          className="shrink-0 rounded-full border border-accent bg-accent-light px-4 py-2 text-sm font-medium text-accent-ink"
+        >
+          Feedback
+          {unreviewedFeedbackCount > 0 ? ` (${unreviewedFeedbackCount})` : ""}
+        </Link>
       </div>
 
       <AdminManagement
