@@ -11,7 +11,8 @@ const WINDOW_MS = {
 } as const;
 
 /**
- * Meant to be hit hourly by a scheduler (see vercel.json) — checks every
+ * Meant to be hit once a day by a scheduler (see vercel.json — daily is
+ * also the most frequent cron Vercel's Hobby plan allows) — checks every
  * admin who's opted into a daily/weekly/monthly digest (rather than
  * "instant", which is sent immediately at signup time from
  * notifyAdminsOfNewSignup) and, once their window has elapsed since
