@@ -28,6 +28,9 @@ export async function SiteHeader() {
           {session?.user ? (
             <>
               <Link href="/dashboard">Dashboard</Link>
+              <Link href="/profile" className="hidden sm:inline">
+                Profile
+              </Link>
               <form
                 action={async () => {
                   "use server";
