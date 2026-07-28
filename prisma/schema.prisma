@@ -388,6 +388,11 @@ model User {
   /// rendering (see src/lib/disclaimer.ts).
   disclaimerAcceptedAt DateTime?
 
+  /// Grants access to /admin. Managed by existing admins from within the
+  /// admin report itself (see src/app/admin/actions.ts) — not a general
+  /// role system, just this one flag.
+  isAdmin Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -1,11 +1,7 @@
-/**
- * Hardcoded allowlist — there's no admin role in the data model yet (see
- * User in schema.prisma), so this is the simplest thing that works for a
- * single-operator site. If more admins are ever needed, this is the
- * obvious place to swap out for a real `User.role` column.
- */
-const ADMIN_EMAILS = new Set(["codyforprez@gmail.com"]);
+import { prisma } from "@/lib/prisma";
 
-export function isAdminEmail(email: string | null | undefined): boolean {
-  return Boolean(email && ADMIN_EMAILS.has(email));
+/** Backed by User.isAdmin — managed from within /admin itself, see src/app/admin/actions.ts. */
+export async function isAdminUser(userId: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
+  return Boolean(user?.isAdmin);
 }

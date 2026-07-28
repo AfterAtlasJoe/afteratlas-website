@@ -1,7 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 
+import { addAdmin, removeAdmin } from "@/app/admin/actions";
 import { auth } from "@/auth";
-import { isAdminEmail } from "@/lib/admin";
+import { AdminManagement } from "@/components/admin/admin-management";
+import { isAdminUser } from "@/lib/admin";
 import { computeAdminAnalytics } from "@/lib/admin-analytics";
 import { prisma } from "@/lib/prisma";
 
@@ -66,11 +68,11 @@ export default async function AdminPage() {
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=%2Fadmin");
   }
-  if (!isAdminEmail(session.user.email)) {
+  if (!(await isAdminUser(session.user.id))) {
     notFound();
   }
 
-  const [responses, questions, checklistItems] = await Promise.all([
+  const [responses, questions, checklistItems, admins] = await Promise.all([
     prisma.surveyResponse.findMany({
       select: {
         id: true,
@@ -92,6 +94,11 @@ export default async function AdminPage() {
         triggers: { select: { questionId: true, answerOptionId: true } },
       },
     }),
+    prisma.user.findMany({
+      where: { isAdmin: true },
+      select: { id: true, email: true },
+      orderBy: { createdAt: "asc" },
+    }),
   ]);
 
   const stats = computeAdminAnalytics(responses, questions, checklistItems);
@@ -107,6 +114,13 @@ export default async function AdminPage() {
           the bottom for what this doesn&apos;t cover.
         </p>
       </div>
+
+      <AdminManagement
+        admins={admins}
+        currentUserId={session.user.id}
+        addAdminAction={addAdmin}
+        removeAdminAction={removeAdmin}
+      />
 
       <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
         {[
