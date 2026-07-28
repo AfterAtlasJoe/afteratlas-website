@@ -3,13 +3,32 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Brand palette, matching afteratlas.com: warm blush hero/section
+     backgrounds, a purple accent for CTAs/links, and a deep-purple
+     ink for illustration linework. Fixed values (not dark-mode aware)
+     since the reference site itself has no dark mode — these are only
+     used on the marketing pages (home, about), not the app's
+     functional screens (dashboard, survey, checklist), which keep the
+     existing neutral palette below. */
+  --blush: #fdf0ea;
+  --blush-deep: #f8d9cf;
+  --accent: #6d3fc0;
+  --accent-ink: #4a2a86;
+  --accent-light: #ddc8f7;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-blush: var(--blush);
+  --color-blush-deep: var(--blush-deep);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-light: var(--accent-light);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-playfair-display);
 }
 
 @media (prefers-color-scheme: dark) {

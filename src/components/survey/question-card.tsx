@@ -66,26 +66,93 @@ export function QuestionCard({
           />
         </div>
       ) : null}
+      {question.type === "select" ? (
+        <SelectAnswer
+          question={question}
+          selectedAnswerOptionId={selectedAnswerOptionId}
+          disabled={disabled}
+          onAnswer={onAnswer}
+        />
+      ) : (
+        <div className="flex flex-col gap-2">
+          {question.answerOptions
+            .slice()
+            .sort((a, b) => a.order - b.order)
+            .map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                disabled={disabled}
+                onClick={() => onAnswer(option.id)}
+                className={`rounded-md border px-4 py-3 text-left text-sm transition-colors disabled:opacity-50 ${
+                  selectedAnswerOptionId === option.id
+                    ? "border-foreground bg-foreground/5"
+                    : "border-black/10 hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A `select` question's options are mutually exclusive scenarios read
+ * together (see e.g. "Which of these scenarios best fits your
+ * situation?") — radio buttons under one prompt, with a single submit,
+ * rather than `bool`'s per-option instant-submit buttons.
+ */
+function SelectAnswer({
+  question,
+  selectedAnswerOptionId,
+  disabled,
+  onAnswer,
+}: {
+  question: QuestionData;
+  selectedAnswerOptionId?: string;
+  disabled: boolean;
+  onAnswer: (answerOptionId: string) => void;
+}) {
+  const [selected, setSelected] = useState(selectedAnswerOptionId);
+
+  return (
+    <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         {question.answerOptions
           .slice()
           .sort((a, b) => a.order - b.order)
           .map((option) => (
-            <button
+            <label
               key={option.id}
-              type="button"
-              disabled={disabled}
-              onClick={() => onAnswer(option.id)}
-              className={`rounded-md border px-4 py-3 text-left text-sm transition-colors disabled:opacity-50 ${
-                selectedAnswerOptionId === option.id
+              className={`flex items-center gap-3 rounded-md border px-4 py-3 text-sm transition-colors ${
+                selected === option.id
                   ? "border-foreground bg-foreground/5"
                   : "border-black/10 hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
-              }`}
+              } ${disabled ? "opacity-50" : "cursor-pointer"}`}
             >
+              <input
+                type="radio"
+                name={`question-${question.id}`}
+                value={option.id}
+                checked={selected === option.id}
+                disabled={disabled}
+                onChange={() => setSelected(option.id)}
+              />
               {option.label}
-            </button>
+            </label>
           ))}
       </div>
+      <button
+        type="button"
+        disabled={disabled || !selected}
+        onClick={() => selected && onAnswer(selected)}
+        className="self-start rounded-full bg-foreground px-5 py-2 text-sm font-medium text-background disabled:opacity-50"
+      >
+        Continue
+      </button>
     </div>
   );
 }
