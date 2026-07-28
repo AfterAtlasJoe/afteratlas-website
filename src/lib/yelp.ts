@@ -28,10 +28,21 @@ type YelpApiBusiness = {
 };
 
 /**
+ * How many candidates to pull from Yelp before sorting locally and
+ * trimming to the caller's `limit`. Yelp's own `sort_by=rating` skews
+ * toward businesses with only one or two reviews, so instead we fetch a
+ * wider best-match pool and rank it ourselves (rating, then review count
+ * as the tiebreaker) rather than trusting Yelp's ordering directly.
+ */
+const CANDIDATE_POOL_SIZE = 20;
+
+/**
  * Looks up vendors near `zipCode` matching `term` (e.g. a VendorCategory
  * name like "Funeral Homes"). Returns an empty list rather than throwing on
  * any failure (missing key, bad zip, rate limit, network error) — callers
  * fall back to a plain "search Yelp yourself" link when the list is empty.
+ * Results are sorted by highest rating first, with review count as a
+ * tiebreaker.
  */
 export async function searchYelpBusinesses(
   term: string,
@@ -44,7 +55,7 @@ export async function searchYelpBusinesses(
   const url = new URL("https://api.yelp.com/v3/businesses/search");
   url.searchParams.set("term", term);
   url.searchParams.set("location", zipCode);
-  url.searchParams.set("limit", String(limit));
+  url.searchParams.set("limit", String(Math.max(limit, CANDIDATE_POOL_SIZE)));
 
   try {
     const response = await fetch(url, {
@@ -54,7 +65,7 @@ export async function searchYelpBusinesses(
     if (!response.ok) return [];
 
     const data: { businesses?: YelpApiBusiness[] } = await response.json();
-    return (data.businesses ?? []).map((b) => ({
+    const businesses = (data.businesses ?? []).map((b) => ({
       id: b.id,
       name: b.name,
       url: b.url,
@@ -64,6 +75,10 @@ export async function searchYelpBusinesses(
       imageUrl: b.image_url ?? null,
       address: b.location?.display_address?.join(", ") ?? "",
     }));
+    businesses.sort(
+      (a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount,
+    );
+    return businesses.slice(0, limit);
   } catch {
     return [];
   }

@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-import { LinkedText } from "./linked-text";
 import type { QuestionData } from "./types";
 
 type MultiselectGroupCardProps = {
@@ -15,6 +14,11 @@ type MultiselectGroupCardProps = {
  * member question gets its own row of answer options, and everything
  * submits together in one batch. Each member still gets its own
  * ChecklistItem/link if answered yes — the grouping is presentational only.
+ *
+ * Deliberately prompt-only, no `question.description`/guide link per row —
+ * this page is meant to be scannable for several rows at once. Anything
+ * actually triggered gets its description and links surfaced right after
+ * submitting, via `<TriggeredItemsSummary>`.
  */
 export function MultiselectGroupCard({
   questions,
@@ -37,11 +41,6 @@ export function MultiselectGroupCard({
         {questions.map((question) => (
           <div key={question.id} className="flex flex-col gap-2 py-4 first:pt-0">
             <p className="text-sm font-medium">{question.prompt}</p>
-            {question.description ? (
-              <p className="text-xs text-zinc-500">
-                <LinkedText text={question.description} />
-              </p>
-            ) : null}
             <div className="flex flex-wrap gap-2">
               {question.answerOptions
                 .slice()
