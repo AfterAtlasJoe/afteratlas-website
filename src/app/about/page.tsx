@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { prisma } from "@/lib/prisma";
@@ -24,30 +25,43 @@ export default async function AboutPage() {
           aria-hidden
           className="pointer-events-none absolute -right-32 top-1/2 h-[34rem] w-[34rem] -translate-y-1/2 rounded-full bg-blush-deep/70 blur-2xl"
         />
-        <div className="relative mx-auto w-full max-w-3xl px-6 py-20">
-          <h1 className="font-display text-5xl font-bold tracking-tight text-black">
-            Our Story
-          </h1>
-          <div className="mt-8 flex flex-col gap-6 text-lg text-zinc-700">
-            <p>
-              In 2013 I lost my mother suddenly in a random accident. As her
-              only heir, the responsibility of closing out everything related
-              to her estate (house, financial accounts, funeral arrangements,
-              filing with the courts, obtaining death certificates, etc.) fell
-              onto my shoulders. As a 30 year old that had never dealt with
-              this before, I found the process to be overwhelming.
-            </p>
-            <p>
-              Gripped with analysis paralysis, I searched online for a
-              comprehensive resource that could give me some guidance on what
-              steps I needed to take. I felt like I was adrift in space and
-              just needed someone to point me in the right direction. My
-              search for a resource that could offer some direction came up
-              empty handed and I became determined to create a tool that
-              could help others going through a similar situation.
-            </p>
-            <p className="italic">— Joe Mangan (Founder)</p>
+        <div className="relative mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 py-20 lg:flex-row lg:items-center lg:justify-between">
+          <div className="lg:max-w-xl">
+            <h1 className="font-display text-5xl font-bold tracking-tight text-black">
+              Our Story
+            </h1>
+            <div className="mt-8 flex flex-col gap-6 text-lg text-zinc-700">
+              <p>
+                In 2013 I lost my mother suddenly in a random accident. As her
+                only heir, the responsibility of closing out everything
+                related to her estate (house, financial accounts, funeral
+                arrangements, filing with the courts, obtaining death
+                certificates, etc.) fell onto my shoulders. As a 30 year old
+                that had never dealt with this before, I found the process to
+                be overwhelming.
+              </p>
+              <p>
+                Gripped with analysis paralysis, I searched online for a
+                comprehensive resource that could give me some guidance on
+                what steps I needed to take. I felt like I was adrift in
+                space and just needed someone to point me in the right
+                direction. My search for a resource that could offer some
+                direction came up empty handed and I became determined to
+                create a tool that could help others going through a similar
+                situation.
+              </p>
+              <p className="italic">— Joe Mangan (Founder)</p>
+            </div>
           </div>
+
+          <Image
+            src="/estate-documents-illustration.svg"
+            alt="An alarm clock, a house photo, a folded letter, glasses, keys, and credit cards scattered together"
+            width={480}
+            height={416}
+            className="w-full max-w-xs shrink-0 lg:max-w-sm"
+            priority
+          />
         </div>
       </div>
 
