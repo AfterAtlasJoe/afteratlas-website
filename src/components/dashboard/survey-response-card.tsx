@@ -4,10 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { LocalDate } from "@/components/local-date";
+
 type SurveyResponseCardProps = {
   id: string;
   title: string;
   subtitle: string;
+  /** ISO timestamp — rendered via `<LocalDate>` in the visitor's own timezone rather than the server's. */
   createdAt: string;
   href: string;
   actionLabel: string;
@@ -102,7 +105,17 @@ export function SurveyResponseCard({
           </button>
         )}
         <p className="text-xs text-zinc-500">
-          {subtitle} &middot; {createdAt}
+          {subtitle} &middot;{" "}
+          <LocalDate
+            date={createdAt}
+            options={{
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+            }}
+          />
         </p>
         {deleteError ? (
           <p className="text-xs text-red-600">{deleteError}</p>

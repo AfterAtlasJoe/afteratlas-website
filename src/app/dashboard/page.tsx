@@ -61,13 +61,7 @@ export default async function DashboardPage() {
                       ? "Post-event checklist"
                       : "Planning gap report"
                   } · ${response.status.replace("_", " ")}`}
-                  createdAt={response.createdAt.toLocaleDateString(undefined, {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
+                  createdAt={response.createdAt.toISOString()}
                   href={href}
                   actionLabel={response.status === "completed" ? "View" : "Resume"}
                 />
