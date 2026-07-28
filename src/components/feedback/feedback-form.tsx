@@ -26,6 +26,7 @@ export function FeedbackForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message: formData.get("message"),
+        rating: formData.get("rating"),
         email: formData.get("email"),
         company: formData.get("company"),
         surveyResponseId,
@@ -61,6 +62,22 @@ export function FeedbackForm({
         Company
         <input type="text" name="company" tabIndex={-1} autoComplete="off" />
       </label>
+
+      <fieldset className="flex flex-col gap-2 text-sm">
+        <legend>How useful was this site?</legend>
+        <div className="flex items-center gap-4">
+          {[1, 2, 3, 4, 5].map((value) => (
+            <label key={value} className="flex flex-col items-center gap-1 text-xs text-zinc-600">
+              <input type="radio" name="rating" value={value} />
+              {value}
+            </label>
+          ))}
+        </div>
+        <div className="flex justify-between text-xs text-zinc-500">
+          <span>Not very helpful</span>
+          <span>Extremely helpful</span>
+        </div>
+      </fieldset>
 
       <label className="flex flex-col gap-1 text-sm">
         Your feedback

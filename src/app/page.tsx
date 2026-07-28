@@ -45,7 +45,7 @@ export default async function Home() {
                   href={`/survey/${eventType.id}`}
                   className="rounded-full border border-accent bg-accent-light px-6 py-3 font-display text-sm font-semibold text-accent-ink transition-colors hover:bg-accent-light/70"
                 >
-                  Start: {eventType.name}
+                  Create Your Checklist
                 </Link>
               ))
             )}
