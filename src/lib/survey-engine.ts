@@ -257,3 +257,40 @@ export function groupByCategory<T extends { category: string }>(
   }
   return groups;
 }
+
+type OrderedBucket = { order: number; categories: string[] };
+
+/**
+ * Category display order matching the actual survey traversal: any
+ * category no TopicBucket covers (the mandatory intro, e.g. "Getting
+ * Started") sorts first — it's always asked before the topic-selection
+ * question, so it's always first in a real run regardless of what gets
+ * selected — then each bucketed category in TopicBucket.order + its
+ * position within that bucket's own `categories` list. The same shape
+ * `advanceSurvey`'s own `categoryOrder` param and the section nav's
+ * grouping already use, so the checklist/PDF/gaps output lines up with
+ * both the survey's traversal order and its nav.
+ */
+/** The bucketed half of `sortCategoriesByDisplayOrder` — also what `advanceSurvey`'s own `categoryOrder` param expects, so the PATCH route builds it once here instead of duplicating the loop. */
+export function bucketCategoryOrder(buckets: OrderedBucket[]): Map<string, number> {
+  const order = new Map<string, number>();
+  let cursor = 0;
+  for (const bucket of buckets.slice().sort((a, b) => a.order - b.order)) {
+    for (const category of bucket.categories) {
+      if (!order.has(category)) {
+        order.set(category, cursor++);
+      }
+    }
+  }
+  return order;
+}
+
+export function sortCategoriesByDisplayOrder(
+  categories: string[],
+  buckets: OrderedBucket[],
+): string[] {
+  const order = bucketCategoryOrder(buckets);
+  return categories
+    .slice()
+    .sort((a, b) => (order.get(a) ?? -1) - (order.get(b) ?? -1));
+}

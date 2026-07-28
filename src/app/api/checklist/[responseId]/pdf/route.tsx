@@ -7,6 +7,7 @@ import { jurisdictionForZip, resolvedChecklistText } from "@/lib/jurisdiction";
 import {
   groupByCategory,
   resolveTriggeredItems,
+  sortCategoriesByDisplayOrder,
   type SurveyAnswers,
 } from "@/lib/survey-engine";
 import { searchYelpBusinesses, type YelpBusiness } from "@/lib/yelp";
@@ -90,19 +91,25 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const checklistItems = await prisma.checklistItem.findMany({
-    where: { eventTypeId: response.eventTypeId },
-    include: {
-      triggers: { select: { questionId: true, answerOptionId: true } },
-      vendorCategory: true,
-    },
-  });
+  const [checklistItems, topicBuckets] = await Promise.all([
+    prisma.checklistItem.findMany({
+      where: { eventTypeId: response.eventTypeId },
+      include: {
+        triggers: { select: { questionId: true, answerOptionId: true } },
+        vendorCategory: true,
+      },
+    }),
+    prisma.topicBucket.findMany({
+      where: { eventTypeId: response.eventTypeId, mode: response.mode },
+    }),
+  ]);
   const jurisdictionId = jurisdictionForZip(response.zipCode);
   const triggered = resolveTriggeredItems(
     checklistItems,
     (response.answers as SurveyAnswers) ?? {},
   ).map((item) => ({ ...item, ...resolvedChecklistText(item, jurisdictionId) }));
   const grouped = groupByCategory(triggered);
+  const orderedCategories = sortCategoriesByDisplayOrder([...grouped.keys()], topicBuckets);
   const completedCount = triggered.filter((item) =>
     response.completedChecklistItemIds.includes(item.id),
   ).length;
@@ -131,10 +138,10 @@ export async function GET(
         <Text style={styles.subtitle}>
           {completedCount} of {triggered.length} task{triggered.length === 1 ? "" : "s"} done.
         </Text>
-        {Array.from(grouped.entries()).map(([category, items]) => (
+        {orderedCategories.map((category) => (
           <View key={category}>
             <Text style={styles.category}>{category}</Text>
-            {items.map((item) => {
+            {grouped.get(category)!.map((item) => {
               const done = response.completedChecklistItemIds.includes(item.id);
               return (
               <View key={item.id} style={styles.item}>

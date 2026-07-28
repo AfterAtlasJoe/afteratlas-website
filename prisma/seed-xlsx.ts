@@ -230,10 +230,11 @@ const GENERAL_INTESTATE_VARIANT_ROWS: Row[] = [
     type: "bool",
     vendors_suggestion: "",
     name: "Are you the named personal representative or executor of the estate?",
-    answer_options: "Yes,40.9,null;No,39.9,null;",
+    answer_options: "Yes,40.9,null;No,39.9,null;Unknown,39.9,null;",
     info_checklist_item: "",
     always_jump_to: "",
-    description: "",
+    description:
+      "Even without a will, a court still appoints someone (often called a personal representative or administrator) to administer the estate. If that hasn't happened yet, or you're not sure, choose Unknown.",
     skip_if_already_shown: "",
     multiselect_group: "",
   },
@@ -281,6 +282,32 @@ const GENERAL_INTESTATE_VARIANT_UIDS = new Set(
  */
 const DESCRIPTION_OVERRIDES: Record<number, string> = {
   40: "You now have a picture of how Washington law would handle this estate. From here, this checklist will walk you through everything else that needs to happen — starting with the most time-sensitive matters first. At the end, you'll have a personalized list of what to handle next, based on your specific situation.",
+  38: "Even without a will, courts still appoint someone (called a personal representative) to administer the estate. If that hasn't happened yet, or you're not sure, choose Unknown.",
+  // Originally just "for King County" — unclear that's a Washington
+  // State county specifically, not a generic placeholder example.
+  80: "This needs to be handled by county, but [here](https://www.kingcounty.gov/~/media/depts/elections/how-to-vote/register-to-vote/cancel-a-registration/deceased-voter-registration-cancellation-form-en.ashx?la=en) is an example of what's required for King County, Washington State — check with your own county for its specific form.",
+};
+
+/**
+ * uid 38's raw prompt ("...in the decedent's will?") only made sense back
+ * when it was shared by both the will-exists and no-will paths — now that
+ * uid 5's "Yes" has its own uid 40.1 (see PERSONAL_REP_WILL_VARIANT_ROWS),
+ * uid 38 is reached exclusively via the no-will chain, where there's no
+ * will to have named anyone in.
+ */
+const PROMPT_OVERRIDES: Record<number, string> = {
+  38: "Are you the named personal representative or executor of the estate?",
+};
+
+/**
+ * uid 38's raw answer_options ("Yes,40,null;No,39,null;") predates this
+ * screen having its own description explaining that a court still
+ * appoints someone even without a will — adds the "Unknown" escape hatch
+ * that description now offers, routing to the same Personal
+ * Representative info as "No" (uid 39) rather than a new destination.
+ */
+const ANSWER_OPTIONS_OVERRIDES: Record<number, string> = {
+  38: "Yes,40,null;No,39,null;Unknown,39,null;",
 };
 
 /**
@@ -397,6 +424,15 @@ const EXCLUDED_QUESTION_UIDS = new Set([61, 63, 65, 67, 134, 136, 167, 169, 171]
  * e.g. a company whose name happens to contain "washington").
  */
 const QUESTION_GENERAL_OVERRIDES: Record<number, { prompt?: string; description?: string }> = {
+  // uid 70's own description cited a "$100K probate assets" threshold —
+  // Washington's specific small-estate cutoff, not a literal "Washington"
+  // mention, so it wasn't caught by that initial keyword-based sweep.
+  // Rather than assert a different number that may itself be wrong for
+  // the user's state, this points to researching the trigger generally.
+  70: {
+    description:
+      "Probate is the court process for validating a will (if there is one) and formally authorizing someone — often called an executor, personal representative, or administrator — to take control of and distribute the estate. Whether probate is required here, and whether a simplified process is available (for example, for smaller estates, or property that was jointly owned or has a named beneficiary), depends on your state's laws. Check your state's probate court or a local probate attorney to find out what applies to this estate.",
+  },
   73: {
     description:
       "You'll need certified copies of the death certificate. These are typically ordered through your state's vital records office, or the funeral home handling arrangements can often help order them.",
@@ -432,6 +468,10 @@ const QUESTION_GENERAL_OVERRIDES: Record<number, { prompt?: string; description?
   157: {
     description:
       "Some states levy their own estate tax separate from the federal estate tax, often with a lower exemption threshold. Check with your state's department of revenue or a local tax professional to see if this applies and what, if anything, is owed.",
+  },
+  80: {
+    description:
+      "Canceling voter registration is typically handled at the county (or equivalent local) level, and the process varies by state. Check your county or state elections office's website for the specific form or process.",
   },
 };
 
@@ -476,6 +516,10 @@ const CHECKLIST_ITEM_GENERAL_OVERRIDES: Record<
   "wa_job-related": {
     description:
       "If the death was work-related, workers' compensation death benefits may be available. Check with your state's workers' compensation agency or the employer's insurer.",
+  },
+  "wa_voters-registrar": {
+    description:
+      "Canceling voter registration is typically handled at the county (or equivalent local) level, and the process varies by state. Check your county or state elections office's website for the specific form or process.",
   },
 };
 
@@ -795,7 +839,12 @@ export async function seedXlsx() {
   // --- Checklist items (created before Questions so skipIfChecklistItemShownId can reference them) ---
   for (const row of rows) {
     if (!row.info_checklist_item) continue;
-    const { cleaned, links } = extractLinks(row.description || "");
+    // DESCRIPTION_OVERRIDES applies here too — the row's own description
+    // feeds both the Question shown mid-survey and the ChecklistItem
+    // shown on the final checklist; they'd otherwise silently diverge.
+    const { cleaned, links } = extractLinks(
+      DESCRIPTION_OVERRIDES[row.uid] ?? (row.description || ""),
+    );
     const generalOverride = CHECKLIST_ITEM_GENERAL_OVERRIDES[row.info_checklist_item];
     await prisma.checklistItem.upsert({
       where: { id: row.info_checklist_item },
@@ -854,6 +903,7 @@ export async function seedXlsx() {
     // Kept as raw text (markdown links intact) — QuestionCard/MultiselectGroupCard
     // render it through <LinkedText>, unlike ChecklistItem's description below,
     // which has links extracted into its own relatedLinks list instead.
+    const prompt = PROMPT_OVERRIDES[row.uid] ?? row.name;
     const description = DESCRIPTION_OVERRIDES[row.uid] ?? (row.description || null);
     const multiselectGroup = MULTISELECT_GROUP_FIXES[row.uid] ?? (row.multiselect_group || null);
     const generalOverride = QUESTION_GENERAL_OVERRIDES[row.uid];
@@ -866,7 +916,7 @@ export async function seedXlsx() {
         mode: MODE,
         type: row.type,
         jurisdictionId: jurisdictionIdFor(row.uid),
-        prompt: row.name,
+        prompt,
         description,
         generalPrompt: generalOverride?.prompt ?? null,
         generalDescription: generalOverride?.description ?? null,
@@ -879,7 +929,7 @@ export async function seedXlsx() {
       update: {
         type: row.type,
         jurisdictionId: jurisdictionIdFor(row.uid),
-        prompt: row.name,
+        prompt,
         description,
         generalPrompt: generalOverride?.prompt ?? null,
         generalDescription: generalOverride?.description ?? null,
@@ -892,7 +942,9 @@ export async function seedXlsx() {
     });
 
     if (hasRealOptions) {
-      const options = parseAnswerOptions(row.answer_options);
+      const options = parseAnswerOptions(
+        ANSWER_OPTIONS_OVERRIDES[row.uid] ?? row.answer_options,
+      );
       for (const [index, option] of options.entries()) {
         await prisma.answerOption.upsert({
           where: { id: `${questionId(row.uid)}-opt-${index}` },
@@ -930,7 +982,7 @@ export async function seedXlsx() {
     if (EXCLUDED_QUESTION_UIDS.has(row.uid)) continue;
     const hasRealOptions = row.type === "bool" || row.type === "select";
     const options = hasRealOptions
-      ? parseAnswerOptions(row.answer_options)
+      ? parseAnswerOptions(ANSWER_OPTIONS_OVERRIDES[row.uid] ?? row.answer_options)
       : [{ label: "Continue", next: "" }];
 
     for (const [index, option] of options.entries()) {
