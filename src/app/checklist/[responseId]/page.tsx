@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { requireDisclaimerAccepted } from "@/lib/disclaimer";
+import { jurisdictionForZip, resolvedChecklistText } from "@/lib/jurisdiction";
 import {
   groupByCategory,
   resolveTriggeredItems,
@@ -47,10 +48,11 @@ export default async function ChecklistPage({
     },
   });
 
+  const jurisdictionId = jurisdictionForZip(response.zipCode);
   const triggered = resolveTriggeredItems(
     checklistItems,
     (response.answers as SurveyAnswers) ?? {},
-  );
+  ).map((item) => ({ ...item, ...resolvedChecklistText(item, jurisdictionId) }));
   const grouped = groupByCategory(triggered);
 
   const vendorCategories = new Map(

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { requireDisclaimerAccepted } from "@/lib/disclaimer";
+import { jurisdictionForZip, resolvedQuestionText } from "@/lib/jurisdiction";
 import { findActiveSurveyResponse } from "@/lib/survey-responses";
 import type { SurveyMode } from "@/generated/prisma/client";
 
@@ -67,9 +68,15 @@ export async function SurveyPage({
     redirect(`${resultsBasePath}/${response.id}`);
   }
 
+  const jurisdictionId = jurisdictionForZip(response.zipCode);
+
   const [questions, buckets] = await Promise.all([
     prisma.question.findMany({
-      where: { eventTypeId, mode },
+      where: {
+        eventTypeId,
+        mode,
+        OR: [{ jurisdictionId: null }, { jurisdictionId }],
+      },
       orderBy: { order: "asc" },
       include: {
         answerOptions: { orderBy: { order: "asc" } },
@@ -85,8 +92,7 @@ export async function SurveyPage({
   const questionData: QuestionData[] = questions.map((q) => ({
     id: q.id,
     type: q.type,
-    prompt: q.prompt,
-    description: q.description,
+    ...resolvedQuestionText(q, jurisdictionId),
     category: q.category,
     section: q.section,
     order: q.order,

@@ -24,6 +24,8 @@ const XLSX_PATH = join(
 );
 const EVENT_TYPE_ID = "death";
 const JURISDICTION_ID = "wa";
+/** Kept in sync with src/lib/jurisdiction.ts's GENERAL_JURISDICTION_ID. */
+const GENERAL_JURISDICTION_ID = "general";
 const MODE = "post_event" as const;
 /** uid range covering the will/intestate-succession/personal-representative intro sequence (§6 "Flow structure ahead of category selection"). */
 const WA_JURISDICTION_UID_RANGE: [number, number] = [5, 40];
@@ -178,6 +180,98 @@ const PERSONAL_REP_WILL_VARIANT_UIDS = new Set(
 );
 
 /**
+ * The general-jurisdiction (non-WA) counterpart of the uid 5-40 +
+ * 40.1-40.3 subgraph. Unlike the small text-only overrides below, this is
+ * a genuine structural fork, not a reworded copy of the same questions:
+ * Washington's intestate-succession rules (who inherits what, absent a
+ * valid will) are specific to WA law and don't generalize to "every
+ * state, minus the WA wording" — inheritance shares and even the order of
+ * relatives differ significantly state to state. Rather than fabricate
+ * 50-state-accurate content, this collapses that entire ~30-row decision
+ * tree into one explanatory screen recommending a local probate attorney
+ * or the user's own state courts, then rejoins the same
+ * executor/"What's Next" shape as the WA path (39.9/40.9 reuse 40.2/40.3's
+ * own copy verbatim — already jurisdiction-neutral, no WA mention at all).
+ * Selected as the actual first question at survey creation time based on
+ * the entered zip (see createSurveyResponse) — never reached by branching
+ * from the WA-tagged rows, and vice versa.
+ */
+const GENERAL_INTESTATE_VARIANT_ROWS: Row[] = [
+  {
+    uid: 5.9,
+    topic: "",
+    type: "bool",
+    vendors_suggestion: "",
+    name: "Did the decedent have a valid will?",
+    answer_options: "Yes,38.9,null;No,37.9,null;",
+    info_checklist_item: "",
+    always_jump_to: "",
+    description: "",
+    skip_if_already_shown: "",
+    multiselect_group: "",
+  },
+  {
+    uid: 37.9,
+    topic: "",
+    type: "info",
+    vendors_suggestion: "",
+    name: "Intestate Succession",
+    answer_options: "",
+    info_checklist_item: "general_intestate-succession",
+    always_jump_to: 38.9,
+    description:
+      "Every state has its own laws (called intestate succession) for how an estate is divided when someone dies without a valid will. Since these rules — including who inherits and in what shares — vary significantly by state, we recommend consulting a probate attorney in your state, or your local court's self-help resources, to understand how this applies to your situation.",
+    skip_if_already_shown: "",
+    multiselect_group: "",
+  },
+  {
+    uid: 38.9,
+    topic: "",
+    type: "bool",
+    vendors_suggestion: "",
+    name: "Are you the named personal representative or executor of the estate?",
+    answer_options: "Yes,40.9,null;No,39.9,null;",
+    info_checklist_item: "",
+    always_jump_to: "",
+    description: "",
+    skip_if_already_shown: "",
+    multiselect_group: "",
+  },
+  {
+    uid: 39.9,
+    topic: "",
+    type: "info",
+    vendors_suggestion: "",
+    name: "Personal Representative Info",
+    answer_options: "",
+    // Reuses uid 40.2's own item — the content is already jurisdiction-neutral (no WA mention), so no separate item is needed.
+    info_checklist_item: "wa_Personal-Representative",
+    always_jump_to: 40.9,
+    description:
+      "In most cases the Personal Representative of the estate will be the one that files all paperwork and gathers the decedent's assets, gives notice to creditors, pays decedent's debts, and distributes decedent's assets. Be sure to coordinate your assistance with the Personal Representative.",
+    skip_if_already_shown: "",
+    multiselect_group: "",
+  },
+  {
+    uid: 40.9,
+    topic: "",
+    type: "info",
+    vendors_suggestion: "",
+    name: "What's Next",
+    answer_options: "",
+    info_checklist_item: "",
+    always_jump_to: 41,
+    description:
+      "This checklist will walk you through several categories relevant to settling the estate. At the end, you'll have a personalized list of what to handle next, based on your specific situation.",
+    skip_if_already_shown: "",
+    multiselect_group: "",
+  },
+];
+const GENERAL_INTESTATE_VARIANT_UIDS = new Set(
+  GENERAL_INTESTATE_VARIANT_ROWS.map((row) => row.uid),
+);
+
+/**
  * The no-will path's own "What's Next" (uid 40) previously read as if
  * everyone had just walked through Washington's intestate-succession
  * rules — true for that path, but uid 5's "Yes" (valid will exists) also
@@ -292,6 +386,99 @@ const MULTISELECT_GROUP_FIXES: Record<number, string> = {
  */
 const EXCLUDED_QUESTION_UIDS = new Set([61, 63, 65, 67, 134, 136, 167, 169, 171]);
 
+/**
+ * Text-only jurisdiction swaps: these rows are asked of every user
+ * regardless of jurisdiction (same question, same branches — unlike the
+ * intestate-succession fork above, there's no structural difference), but
+ * their wording names a specific WA agency, deadline, or link. Checked
+ * every row flagged by grepping the source spreadsheet for
+ * "washington"/".wa.gov"/"RCW" outside the intestate-succession range;
+ * these are the ones where the match was a real state-specific claim (not
+ * e.g. a company whose name happens to contain "washington").
+ */
+const QUESTION_GENERAL_OVERRIDES: Record<number, { prompt?: string; description?: string }> = {
+  73: {
+    description:
+      "You'll need certified copies of the death certificate. These are typically ordered through your state's vital records office, or the funeral home handling arrangements can often help order them.",
+  },
+  75: {
+    description:
+      "If you're named as the executor/personal representative, most states require filing the will with the local probate court within a set window after death. Check with your county probate court (or a local probate attorney) for the specific deadline and required forms where you are.",
+  },
+  85: {
+    prompt:
+      "Was the decedent receiving government assistance benefits (for example, Medicaid) that a state agency may need to be notified about?",
+  },
+  86: {
+    prompt:
+      "Have you notified the relevant state agency about the assistance benefits they were receiving?",
+  },
+  87: {
+    description:
+      "Many states have an estate recovery program that recoups certain Medicaid/public-assistance costs from an estate. Contact your state's health or social services agency (often called an Office of Financial Recovery, Estate Recovery Unit, or similar) to notify them and ask what, if anything, is owed.",
+  },
+  94: {
+    description:
+      "Firearms have specific legal transfer requirements. [Here](https://sporting-systems.com/blog/inheriting-a-gun-what-happens-to-firearms-when-an-owner-dies/) is a guide — requirements (including background checks in many cases) vary significantly by state, so check your state's specific rules for transferring firearms, even within families.",
+  },
+  115: {
+    description:
+      "It's common for people to have forgotten money or property waiting to be claimed (old refunds, uncashed checks, safe deposit box contents, etc.). [missingmoney.com](https://missingmoney.com) is a free multi-state unclaimed property search endorsed by state treasurers, or check your state's treasury website directly.",
+  },
+  156: {
+    prompt:
+      "Have you checked whether your state's tax agency needs to be notified (for example, for a state estate tax)?",
+  },
+  157: {
+    description:
+      "Some states levy their own estate tax separate from the federal estate tax, often with a lower exemption threshold. Check with your state's department of revenue or a local tax professional to see if this applies and what, if anything, is owed.",
+  },
+};
+
+/**
+ * Same idea as QUESTION_GENERAL_OVERRIDES, for the ChecklistItems those
+ * rows produce — keyed by info_checklist_item id rather than uid.
+ * relatedLinks given directly (not extracted from markdown) since these
+ * are hand-authored, not sourced from the spreadsheet's own description.
+ */
+const CHECKLIST_ITEM_GENERAL_OVERRIDES: Record<
+  string,
+  { description: string; relatedLinks?: string[] }
+> = {
+  "wa_Filing-Will": {
+    description:
+      "If you're named as the executor/personal representative, most states require filing the will with the local probate court within a set window after death. Check with your county probate court (or a local probate attorney) for the specific deadline and required forms where you are.",
+  },
+  "wa_office-financial-recovery": {
+    description:
+      "Many states have an estate recovery program that recoups certain Medicaid/public-assistance costs from an estate. Contact your state's health or social services agency to notify them and ask what, if anything, is owed.",
+  },
+  wa_firearms: {
+    description:
+      "Firearms have specific legal transfer requirements that vary significantly by state, including background checks in many cases, even within families. Check your state's specific rules before transferring any firearms.",
+    relatedLinks: [
+      "https://sporting-systems.com/blog/inheriting-a-gun-what-happens-to-firearms-when-an-owner-dies/",
+    ],
+  },
+  "wa_unclaimed-property": {
+    description:
+      "It's common for people to have forgotten money or property waiting to be claimed (old refunds, uncashed checks, safe deposit box contents, etc.).",
+    relatedLinks: ["https://missingmoney.com"],
+  },
+  "wa_dept-of-revenue": {
+    description:
+      "Some states levy their own estate tax separate from the federal estate tax, often with a lower exemption threshold. Check with your state's department of revenue or a local tax professional to see if this applies.",
+  },
+  "wa_criminal-act": {
+    description:
+      "If the death was the result of a crime, many states offer a crime victims' compensation program that may help cover related expenses. Check with your state's attorney general or victim services office.",
+  },
+  "wa_job-related": {
+    description:
+      "If the death was work-related, workers' compensation death benefits may be available. Check with your state's workers' compensation agency or the employer's insurer.",
+  },
+};
+
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
@@ -365,9 +552,30 @@ function extractLinks(text: string): { cleaned: string; links: string[] } {
 }
 
 export async function seedXlsx() {
-  const rows = [...readRows(), ...PERSONAL_REP_WILL_VARIANT_ROWS];
+  const rows = [
+    ...readRows(),
+    ...PERSONAL_REP_WILL_VARIANT_ROWS,
+    ...GENERAL_INTESTATE_VARIANT_ROWS,
+  ];
   const byUid = new Map(rows.map((r) => [r.uid, r]));
   const allUids = rows.map((r) => r.uid).sort((a, b) => a - b);
+
+  /** "wa" for the dedicated-content subgraph, "general" for its collapsed counterpart, null (universal) for everything else. */
+  function jurisdictionIdFor(uid: number): string | null {
+    // Checked first: GENERAL_INTESTATE_VARIANT_ROWS' uids (5.9, 37.9, 38.9,
+    // 39.9) fall numerically inside WA_JURISDICTION_UID_RANGE ([5, 40]) —
+    // that range check alone can't tell "wa-37" from "wa-37.9".
+    if (GENERAL_INTESTATE_VARIANT_UIDS.has(uid)) {
+      return GENERAL_JURISDICTION_ID;
+    }
+    if (
+      (uid >= WA_JURISDICTION_UID_RANGE[0] && uid <= WA_JURISDICTION_UID_RANGE[1]) ||
+      PERSONAL_REP_WILL_VARIANT_UIDS.has(uid)
+    ) {
+      return JURISDICTION_ID;
+    }
+    return null;
+  }
 
   /**
    * A target landing on an EXCLUDED_QUESTION_UIDS row (no Question ever
@@ -588,6 +796,7 @@ export async function seedXlsx() {
   for (const row of rows) {
     if (!row.info_checklist_item) continue;
     const { cleaned, links } = extractLinks(row.description || "");
+    const generalOverride = CHECKLIST_ITEM_GENERAL_OVERRIDES[row.info_checklist_item];
     await prisma.checklistItem.upsert({
       where: { id: row.info_checklist_item },
       create: {
@@ -597,6 +806,8 @@ export async function seedXlsx() {
         description: cleaned,
         category: categoryFromTopic(row.topic),
         relatedLinks: links,
+        generalDescription: generalOverride?.description ?? null,
+        generalRelatedLinks: generalOverride?.relatedLinks ?? [],
         vendorCategoryId: vendorCategoryIdFor(row),
       },
       update: {
@@ -604,6 +815,8 @@ export async function seedXlsx() {
         description: cleaned,
         category: categoryFromTopic(row.topic),
         relatedLinks: links,
+        generalDescription: generalOverride?.description ?? null,
+        generalRelatedLinks: generalOverride?.relatedLinks ?? [],
         vendorCategoryId: vendorCategoryIdFor(row),
       },
     });
@@ -637,15 +850,13 @@ export async function seedXlsx() {
   // --- Questions + answer options ---------------------------------------
   for (const row of rows) {
     if (EXCLUDED_QUESTION_UIDS.has(row.uid)) continue;
-    const isWaSpecific =
-      (row.uid >= WA_JURISDICTION_UID_RANGE[0] && row.uid <= WA_JURISDICTION_UID_RANGE[1]) ||
-      PERSONAL_REP_WILL_VARIANT_UIDS.has(row.uid);
     const hasRealOptions = row.type === "bool" || row.type === "select";
     // Kept as raw text (markdown links intact) — QuestionCard/MultiselectGroupCard
     // render it through <LinkedText>, unlike ChecklistItem's description below,
     // which has links extracted into its own relatedLinks list instead.
     const description = DESCRIPTION_OVERRIDES[row.uid] ?? (row.description || null);
     const multiselectGroup = MULTISELECT_GROUP_FIXES[row.uid] ?? (row.multiselect_group || null);
+    const generalOverride = QUESTION_GENERAL_OVERRIDES[row.uid];
 
     await prisma.question.upsert({
       where: { id: questionId(row.uid) },
@@ -654,9 +865,11 @@ export async function seedXlsx() {
         eventTypeId: EVENT_TYPE_ID,
         mode: MODE,
         type: row.type,
-        jurisdictionId: isWaSpecific ? JURISDICTION_ID : null,
+        jurisdictionId: jurisdictionIdFor(row.uid),
         prompt: row.name,
         description,
+        generalPrompt: generalOverride?.prompt ?? null,
+        generalDescription: generalOverride?.description ?? null,
         category: categoryFromTopic(row.topic),
         order: row.uid,
         skipIfChecklistItemShownId: row.skip_if_already_shown || null,
@@ -665,9 +878,11 @@ export async function seedXlsx() {
       },
       update: {
         type: row.type,
-        jurisdictionId: isWaSpecific ? JURISDICTION_ID : null,
+        jurisdictionId: jurisdictionIdFor(row.uid),
         prompt: row.name,
         description,
+        generalPrompt: generalOverride?.prompt ?? null,
+        generalDescription: generalOverride?.description ?? null,
         category: categoryFromTopic(row.topic),
         order: row.uid,
         skipIfChecklistItemShownId: row.skip_if_already_shown || null,

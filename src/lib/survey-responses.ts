@@ -1,4 +1,5 @@
 import type { SurveyMode } from "@/generated/prisma/client";
+import { jurisdictionForZip } from "@/lib/jurisdiction";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -30,8 +31,17 @@ export async function createSurveyResponse(
   title: string,
   zipCode: string,
 ) {
+  // The very first question forks by jurisdiction (see
+  // prisma/seed-xlsx.ts's GENERAL_INTESTATE_VARIANT_ROWS) — both variants
+  // share the same `order`, so without this filter `findFirst` could
+  // arbitrarily land on either one regardless of the entered zip.
+  const jurisdictionId = jurisdictionForZip(zipCode);
   const firstQuestion = await prisma.question.findFirst({
-    where: { eventTypeId, mode },
+    where: {
+      eventTypeId,
+      mode,
+      OR: [{ jurisdictionId: null }, { jurisdictionId }],
+    },
     orderBy: { order: "asc" },
   });
 

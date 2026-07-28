@@ -226,6 +226,41 @@ an exact countdown — `skip_if_already_shown` and branch-based skips mean
 some counted questions will never actually be asked, so it may not
 reach 100% even once nothing's left.
 
+### Jurisdiction (`src/lib/jurisdiction.ts`)
+
+The source spreadsheet is Washington-specific — some content names a WA
+state agency, a WA-specific deadline, or links a WA-specific form. Two
+mechanisms keep that content from reaching users outside Washington,
+both keyed off `jurisdictionForZip(zipCode)` (currently a 3-digit zip
+prefix range for WA; every other zip resolves to the `"general"`
+fallback — extending to another state later just means adding another
+prefix range plus that state's own content, no engine changes):
+
+- **Structural fork** — Washington's intestate-succession rules (who
+  inherits what, absent a valid will) don't generalize to "every state,
+  reworded" — shares and even the order of relatives differ state to
+  state. Rather than fabricate 50-state-accurate content, the ~30-row
+  WA decision tree (`Question.jurisdictionId = "wa"`) has a collapsed
+  general-jurisdiction counterpart (`"general"`, `GENERAL_INTESTATE_VARIANT_ROWS`
+  in `prisma/seed-xlsx.ts`) — one explanatory screen recommending a
+  local probate attorney, then the same executor/"What's Next" shape.
+  `createSurveyResponse` picks whichever variant matches at the very
+  first question (the two share an `order` value); every other
+  Question-fetching query filters to `jurisdictionId IS NULL OR
+  jurisdictionId = <resolved>` so the other variant is never fetched at
+  all — it isn't a redirect, the "wrong" jurisdiction's rows simply
+  aren't in the result set.
+- **Text-only override** — everything else with WA-specific wording
+  (e.g. "have you notified the Washington State Department of Revenue?",
+  a link to a WA-specific unclaimed-property registry) is the *same*
+  question/branches for every user, just reworded for the ~10 rows that
+  need it: `Question.generalPrompt`/`generalDescription` and
+  `ChecklistItem.generalDescription`/`generalRelatedLinks` (all
+  nullable) hold the swap-in copy, applied by `resolvedQuestionText`/
+  `resolvedChecklistText` at every render site whenever the resolved
+  jurisdiction isn't `"wa"`. No new rows, no query-filter involvement —
+  purely a text swap on an otherwise-shared row.
+
 ### Disclaimer / liability gate
 
 Every protected page (`/dashboard`, `/survey/[eventType]`, `/plan/[eventType]`,
