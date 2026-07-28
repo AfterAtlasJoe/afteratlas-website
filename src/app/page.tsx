@@ -53,11 +53,11 @@ export default async function Home() {
         </div>
 
         <Image
-          src="/checklist-illustration.svg"
+          src="/writing-a-checklist.svg"
           alt="A hand checking items off a handwritten checklist"
-          width={480}
-          height={492}
-          className="w-full max-w-xs shrink-0 lg:max-w-sm"
+          width={784}
+          height={600}
+          className="w-full max-w-md shrink-0 lg:max-w-lg"
           priority
         />
       </div>

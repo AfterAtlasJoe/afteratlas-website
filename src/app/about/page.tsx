@@ -55,10 +55,10 @@ export default async function AboutPage() {
           </div>
 
           <Image
-            src="/estate-documents-illustration.svg"
-            alt="An alarm clock, a house photo, a folded letter, glasses, keys, and credit cards scattered together"
-            width={480}
-            height={416}
+            src="/cluttered-desk.svg"
+            alt="A cluttered desk with a clock, photos, a letter, glasses, keys, and credit cards scattered together"
+            width={1681}
+            height={1451}
             className="w-full max-w-xs shrink-0 lg:max-w-sm"
             priority
           />
