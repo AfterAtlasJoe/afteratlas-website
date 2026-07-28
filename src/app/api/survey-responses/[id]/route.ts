@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { jurisdictionForZip, resolvedChecklistText } from "@/lib/jurisdiction";
 import {
   advanceSurvey,
   resolveTriggeredItems,
@@ -86,6 +87,7 @@ export async function PATCH(
   if (!response || response.userId !== session.user.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  const jurisdictionId = jurisdictionForZip(response.zipCode);
 
   const body = await request.json();
 
@@ -124,7 +126,12 @@ export async function PATCH(
       // them rather than only ones you've already passed through.
       const [targetQuestion, topicBuckets] = await Promise.all([
         prisma.question.findFirst({
-          where: { id: targetId, eventTypeId: response.eventTypeId, mode: response.mode },
+          where: {
+            id: targetId,
+            eventTypeId: response.eventTypeId,
+            mode: response.mode,
+            OR: [{ jurisdictionId: null }, { jurisdictionId }],
+          },
           select: { category: true },
         }),
         prisma.topicBucket.findMany({
@@ -184,7 +191,11 @@ export async function PATCH(
 
   const [orderedQuestions, branches, checklistItems, topicBuckets] = await Promise.all([
     prisma.question.findMany({
-      where: { eventTypeId: response.eventTypeId, mode: response.mode },
+      where: {
+        eventTypeId: response.eventTypeId,
+        mode: response.mode,
+        OR: [{ jurisdictionId: null }, { jurisdictionId }],
+      },
       orderBy: { order: "asc" },
       select: {
         id: true,
@@ -259,8 +270,7 @@ export async function PATCH(
           .map((item) => ({
             id: item.id,
             title: item.title,
-            description: item.description,
-            relatedLinks: item.relatedLinks,
+            ...resolvedChecklistText(item, jurisdictionId),
           }))
       : [];
 

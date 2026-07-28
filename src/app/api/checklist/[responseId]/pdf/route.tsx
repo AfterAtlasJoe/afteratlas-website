@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { jurisdictionForZip, resolvedChecklistText } from "@/lib/jurisdiction";
 import {
   groupByCategory,
   resolveTriggeredItems,
@@ -96,10 +97,11 @@ export async function GET(
       vendorCategory: true,
     },
   });
+  const jurisdictionId = jurisdictionForZip(response.zipCode);
   const triggered = resolveTriggeredItems(
     checklistItems,
     (response.answers as SurveyAnswers) ?? {},
-  );
+  ).map((item) => ({ ...item, ...resolvedChecklistText(item, jurisdictionId) }));
   const grouped = groupByCategory(triggered);
   const completedCount = triggered.filter((item) =>
     response.completedChecklistItemIds.includes(item.id),

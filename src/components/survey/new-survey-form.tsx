@@ -79,8 +79,8 @@ export function NewSurveyForm({
             className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10 dark:bg-transparent"
           />
           <span className="text-xs text-zinc-500">
-            Used to find local vendor recommendations (funeral homes,
-            probate lawyers, etc.) as you go.
+            Used to find local services nearby if needed (funeral homes,
+            probate lawyers, etc.)
           </span>
         </label>
         <button

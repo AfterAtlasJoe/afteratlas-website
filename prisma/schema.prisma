@@ -116,6 +116,18 @@ model Question {
   prompt      String
   /// Optional help text shown alongside the prompt (definitions, resource links).
   description String?
+
+  /// Jurisdiction-neutral replacement for `prompt`, shown instead whenever
+  /// the response's resolved jurisdiction isn't one with its own dedicated
+  /// content (see src/lib/jurisdiction.ts) — e.g. a question that names a
+  /// specific state agency. Null for the vast majority of questions, which
+  /// don't need rewording at all. Unlike `jurisdictionId`/the dedicated
+  /// intestate-succession subgraph, this doesn't fork the question graph —
+  /// it's the same question/branches for everyone, just different text.
+  generalPrompt String?
+  /// See `generalPrompt` — the same swap-in for `description`.
+  generalDescription String?
+
   /// Grouping label for the section nav (e.g. "Home & Property"). Display only — not a sort key.
   category    String
   /// Global sequence across the whole eventType+mode question set (not scoped to category).
@@ -209,6 +221,15 @@ model ChecklistItem {
   description  String
   category     String
   relatedLinks String[]
+
+  /// Jurisdiction-neutral replacement for `description`/`relatedLinks`,
+  /// shown instead whenever the response's resolved jurisdiction isn't one
+  /// with its own dedicated content (see src/lib/jurisdiction.ts and
+  /// Question.generalPrompt) — e.g. a link to a specific state agency.
+  /// Null (the vast majority) means this item's content is already
+  /// jurisdiction-neutral.
+  generalDescription  String?
+  generalRelatedLinks String[] @default([])
 
   vendorCategoryId String?
   vendorCategory   VendorCategory? @relation(fields: [vendorCategoryId], references: [id])
