@@ -3,6 +3,8 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+
 export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -55,6 +57,13 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
       >
         {submitting ? "Logging in…" : "Log in"}
       </button>
+
+      <div className="flex items-center gap-3 text-xs text-zinc-500">
+        <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
+        or
+        <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
+      </div>
+      <GoogleSignInButton callbackUrl={callbackUrl} />
     </form>
   );
 }
