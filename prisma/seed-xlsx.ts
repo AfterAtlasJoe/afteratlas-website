@@ -120,6 +120,13 @@ const ANSWER_OPTION_TARGET_FIXES: Record<string, number> = {
  */
 const SKIP_QUESTION_IDS_FIXES: Record<string, number[]> = {
   "180:No": [181],
+  // uid 5's "No" (no valid will) still rejoined the common death-certificate
+  // sequence at uid 72-73 same as "Yes", so uid 74 ("Do you have possession
+  // of the will?") and its uid 75 "Filing the Will" follow-up got asked
+  // even after the user said no will existed — and both of uid 74's answers
+  // trigger the "Filing the Will" checklist item regardless, so it isn't
+  // just the wording that's wrong, the item shouldn't be added at all here.
+  "5:No": [74, 75],
 };
 
 /**
