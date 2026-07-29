@@ -224,18 +224,19 @@ export function advanceSurvey(
       );
       if (redirected !== null) {
         candidate = redirected;
-      } else if (
-        candidateQuestion &&
-        categoryFilter.allBucketedCategories.has(candidateQuestion.category) &&
-        !categoryFilter.selectedCategories.has(candidateQuestion.category)
-      ) {
-        // No selected category left ahead, and the natural candidate is
-        // itself a bucketed-but-unselected one — nothing left to show.
+      } else if (candidateQuestion && categoryFilter.allBucketedCategories.has(candidateQuestion.category)) {
+        // No selected category remains strictly after fromOrder — and
+        // nextSelectedCategoryEntry already scanned every bucketed
+        // category, so any bucketed candidate reached here is guaranteed
+        // to be one already passed (selected and finished earlier, e.g. a
+        // stale raw graph pointer looping back into it — see
+        // seed-xlsx.ts's ALWAYS_JUMP_TO_FIXES) or one that was never
+        // selected at all. Either way there's nothing left to show.
         candidate = null;
       }
-      // else: no selected category left ahead, but the natural candidate
-      // isn't a bucketed dead end either (e.g. truly no more content, or
-      // content outside every bucket) — leave it as the natural result.
+      // else: the natural candidate isn't a bucketed category at all
+      // (e.g. truly no more content, or content outside every bucket) —
+      // leave it as the natural result.
     }
   }
 
