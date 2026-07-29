@@ -63,9 +63,9 @@ export function FeedbackForm({
         <input type="text" name="company" tabIndex={-1} autoComplete="off" />
       </label>
 
-      <fieldset className="flex flex-col gap-2 text-sm">
+      <fieldset className="flex max-w-sm flex-col gap-2 text-sm">
         <legend>How useful was this site?</legend>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between">
           {[1, 2, 3, 4, 5].map((value) => (
             <label key={value} className="flex flex-col items-center gap-1 text-xs text-zinc-600">
               <input type="radio" name="rating" value={value} />
