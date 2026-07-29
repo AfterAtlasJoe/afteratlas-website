@@ -134,7 +134,7 @@ export default async function Home() {
           </div>
 
           <Image
-            src="/phone-checklist.svg"
+            src="/updated-phone-checklist.svg"
             alt="A phone showing a checklist app with checked-off items"
             width={477}
             height={520}

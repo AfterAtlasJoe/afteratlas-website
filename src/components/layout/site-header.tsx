@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { auth, signOut } from "@/auth";
+import { isAdminUser } from "@/lib/admin";
 
 import { NavLinks } from "./nav-links";
 
@@ -11,6 +12,7 @@ import { NavLinks } from "./nav-links";
  */
 export async function SiteHeader() {
   const session = await auth();
+  const isAdmin = session?.user?.id ? await isAdminUser(session.user.id) : false;
 
   return (
     <header>
@@ -31,6 +33,11 @@ export async function SiteHeader() {
               <Link href="/profile" className="hidden sm:inline">
                 Profile
               </Link>
+              {isAdmin ? (
+                <Link href="/admin" className="hidden sm:inline">
+                  Admin
+                </Link>
+              ) : null}
               <form
                 action={async () => {
                   "use server";
