@@ -79,8 +79,8 @@ export function QuestionCard({
           />
         </div>
       ) : null}
-      {question.type === "select" ? (
-        <SelectAnswer
+      {question.type === "select" || question.type === "bool" ? (
+        <RadioAnswer
           question={question}
           sortedOptions={sortedOptions}
           optionLabels={scenarioDescriptions}
@@ -136,16 +136,17 @@ function parseNumberedDescription(
 }
 
 /**
- * A `select` question's options are mutually exclusive scenarios read
- * together (see e.g. "Which of these scenarios best fits your
- * situation?") — radio buttons under one prompt, with a single submit,
- * rather than `bool`'s per-option instant-submit buttons. `optionLabels`
- * (from `parseNumberedDescription`), when present, replaces each option's
- * own short label with its full scenario text so the user can tell the
- * choices apart without matching a separate numbered list back down to
- * generic buttons.
+ * Radio buttons under one prompt with a single "Continue" submit, used for
+ * both `select` (mutually exclusive scenarios, e.g. "Which of these
+ * scenarios best fits your situation?") and `bool` questions — `info`
+ * questions (a single "Continue" option) still use the plain instant-submit
+ * button below instead, since a lone radio would be redundant there.
+ * `optionLabels` (from `parseNumberedDescription`, `select` only), when
+ * present, replaces each option's own short label with its full scenario
+ * text so the user can tell the choices apart without matching a separate
+ * numbered list back down to generic buttons.
  */
-function SelectAnswer({
+function RadioAnswer({
   question,
   sortedOptions,
   optionLabels,
