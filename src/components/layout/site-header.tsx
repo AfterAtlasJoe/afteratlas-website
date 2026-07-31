@@ -26,18 +26,12 @@ export async function SiteHeader() {
           After Atlas
         </Link>
 
-        <div className="flex items-center justify-end gap-4 text-sm font-medium">
+        <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 text-sm font-medium">
           {session?.user ? (
             <>
               <Link href="/dashboard">Dashboard</Link>
-              <Link href="/profile" className="hidden sm:inline">
-                Profile
-              </Link>
-              {isAdmin ? (
-                <Link href="/admin" className="hidden sm:inline">
-                  Admin
-                </Link>
-              ) : null}
+              <Link href="/profile">Profile</Link>
+              {isAdmin ? <Link href="/admin">Admin</Link> : null}
               <form
                 action={async () => {
                   "use server";
@@ -54,9 +48,7 @@ export async function SiteHeader() {
             </>
           ) : (
             <>
-              <Link href="/register" className="hidden sm:inline">
-                Sign up
-              </Link>
+              <Link href="/register">Sign up</Link>
               <Link
                 href="/login"
                 className="rounded-full border border-accent bg-accent-light px-5 py-2 text-accent-ink"
