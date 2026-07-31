@@ -22,10 +22,26 @@ const playfairDisplay = Playfair_Display({
   subsets: ["latin"],
 });
 
+const description =
+  "A free, guided checklist for closing out an estate after a death, plus local vendor recommendations — so you always know what to do next.";
+
 export const metadata: Metadata = {
-  title: "After Atlas",
-  description:
-    "A guided checklist and vendor recommendations for navigating major life transitions.",
+  metadataBase: new URL("https://afteratlas.com"),
+  title: {
+    default: "After Atlas — Post-Death Checklist & Estate Closing Guide",
+    template: "%s | After Atlas",
+  },
+  description,
+  openGraph: {
+    title: "After Atlas",
+    description,
+    url: "/",
+    siteName: "After Atlas",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default function RootLayout({

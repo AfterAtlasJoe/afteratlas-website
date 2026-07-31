@@ -1,9 +1,16 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "About",
+  description:
+    "Why After Atlas exists: a founder's own experience closing out an estate alone, and the free checklist tool it inspired.",
+};
 
 /**
  * Mirrors the structure and style of afteratlas.com/about — the founder's
