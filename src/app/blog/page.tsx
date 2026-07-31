@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Blog",
+  description: "Guidance and stories on navigating what comes after loss.",
+};
 
 export default async function BlogIndexPage() {
   const articles = await prisma.article.findMany({
