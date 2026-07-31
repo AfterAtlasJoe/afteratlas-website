@@ -644,6 +644,12 @@ model Article {
   title String
   body  String
 
+  /// Overrides for the <title> tag and meta description — kept distinct from
+  /// `title` since a good on-page H1 and a good SERP title are often worded
+  /// differently. Both fall back to `title` (and a body excerpt) when unset.
+  metaTitle       String?
+  metaDescription String?
+
   publishedAt DateTime?
 
   eventTypeId String?
