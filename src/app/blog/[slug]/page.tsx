@@ -2,16 +2,24 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { parseFaqFromMarkdown, renderArticleBodyHtml } from "@/lib/blog";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-/** Meta descriptions want a short plain-text snippet, not the whole article body. */
+const BASE_URL = "https://afteratlas.com";
+
+/** Meta descriptions want a short plain-text snippet, not the whole article body — only used as a fallback for articles without a curated metaDescription. */
 function excerpt(body: string, maxLength = 160): string {
   const flattened = body.replace(/\s+/g, " ").trim();
   return flattened.length > maxLength
     ? `${flattened.slice(0, maxLength - 1).trimEnd()}…`
     : flattened;
+}
+
+/** Prevents a stray `</script>` inside JSON content from closing the script tag early. */
+function safeJsonLd(data: unknown): string {
+  return JSON.stringify(data).replace(/</g, "\\u003c");
 }
 
 export async function generateMetadata({
@@ -24,14 +32,26 @@ export async function generateMetadata({
   if (!article || !article.publishedAt) {
     return {};
   }
+
+  const title = article.metaTitle ?? article.title;
+  const description = article.metaDescription ?? excerpt(article.body);
+  const path = `/blog/${article.slug}`;
+
   return {
-    title: article.title,
-    description: excerpt(article.body),
+    title: { absolute: title },
+    description,
+    alternates: { canonical: path },
     openGraph: {
-      title: article.title,
-      description: excerpt(article.body),
+      title,
+      description,
+      url: path,
       type: "article",
       publishedTime: article.publishedAt.toISOString(),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
     },
   };
 }
@@ -48,8 +68,48 @@ export default async function ArticlePage({
     notFound();
   }
 
+  const bodyHtml = renderArticleBodyHtml(article.body);
+  const faq = parseFaqFromMarkdown(article.body);
+  const url = `${BASE_URL}/blog/${article.slug}`;
+
+  const articleJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: article.title,
+    description: article.metaDescription ?? excerpt(article.body),
+    datePublished: article.publishedAt.toISOString(),
+    dateModified: article.updatedAt.toISOString(),
+    author: { "@type": "Organization", name: "After Atlas" },
+    publisher: { "@type": "Organization", name: "After Atlas" },
+    mainEntityOfPage: { "@type": "WebPage", "@id": url },
+  };
+
+  const faqJsonLd =
+    faq.length > 0
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faq.map((entry) => ({
+            "@type": "Question",
+            name: entry.question,
+            acceptedAnswer: { "@type": "Answer", text: entry.answer },
+          })),
+        }
+      : null;
+
   return (
     <div className="flex flex-1 flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(articleJsonLd) }}
+      />
+      {faqJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(faqJsonLd) }}
+        />
+      ) : null}
+
       <div className="relative w-full overflow-hidden bg-blush">
         <div
           aria-hidden
@@ -63,16 +123,27 @@ export default async function ArticlePage({
             {article.title}
           </h1>
           <p className="mt-3 text-sm text-zinc-600">
-            {article.publishedAt.toLocaleDateString()}
+            Last published {article.publishedAt.toLocaleDateString()}
           </p>
         </div>
       </div>
 
       {/* Same fixed bg-white reasoning as the About/Blog-index pages. */}
       <div className="w-full bg-white">
-        <article className="mx-auto w-full max-w-2xl px-6 py-16">
-          <div className="whitespace-pre-wrap text-lg text-zinc-700">{article.body}</div>
-        </article>
+        <article
+          className="prose-content mx-auto w-full max-w-2xl px-6 py-16 text-lg text-zinc-700
+            [&_a]:text-accent-ink [&_a]:underline
+            [&_blockquote]:my-6 [&_blockquote]:border-l-4 [&_blockquote]:border-blush-deep [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-zinc-600
+            [&_em]:italic
+            [&_h2]:mb-4 [&_h2]:mt-10 [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:text-black
+            [&_hr]:my-8 [&_hr]:border-black/10
+            [&_li]:mb-1
+            [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6
+            [&_p]:mb-4
+            [&_strong]:font-semibold [&_strong]:text-black
+            [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-6"
+          dangerouslySetInnerHTML={{ __html: bodyHtml }}
+        />
       </div>
     </div>
   );

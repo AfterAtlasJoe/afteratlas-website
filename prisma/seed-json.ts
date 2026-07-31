@@ -75,6 +75,8 @@ type SeedArticle = {
   slug: string;
   title: string;
   body: string;
+  metaTitle?: string;
+  metaDescription?: string;
   publishedAt: string | null;
   eventTypeId: string | null;
 };

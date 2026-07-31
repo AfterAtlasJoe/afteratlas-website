@@ -54,7 +54,7 @@ export default async function BlogIndexPage() {
                     </p>
                     {article.publishedAt ? (
                       <p className="mt-1 text-xs text-zinc-500">
-                        {article.publishedAt.toLocaleDateString()}
+                        Last published {article.publishedAt.toLocaleDateString()}
                       </p>
                     ) : null}
                   </Link>
