@@ -123,7 +123,7 @@ export default async function ArticlePage({
             {article.title}
           </h1>
           <p className="mt-3 text-sm text-zinc-600">
-            {article.publishedAt.toLocaleDateString()}
+            Last published {article.publishedAt.toLocaleDateString()}
           </p>
         </div>
       </div>
