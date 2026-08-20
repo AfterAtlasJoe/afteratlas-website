@@ -23,7 +23,7 @@ const playfairDisplay = Playfair_Display({
 });
 
 const description =
-  "A free, guided checklist for closing out an estate after a death, plus local vendor recommendations — so you always know what to do next.";
+  "A free, guided checklist for closing out an estate after a death so you always know what to do next.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://afteratlas.com"),
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   },
   description,
   openGraph: {
-    title: "After Atlas",
+    title: "After Atlas: Post-Death Checklist",
     description,
     url: "/",
     siteName: "After Atlas",
@@ -41,6 +41,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
+    title: "After Atlas: Post-Death Checklist",
+    description,
   },
 };
 
