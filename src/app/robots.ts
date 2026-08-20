@@ -16,6 +16,8 @@ export default function robots(): MetadataRoute.Robots {
         "/gaps/",
         "/login",
         "/register",
+        "/forgot-password",
+        "/reset-password",
         "/disclaimer",
         "/feedback",
         "/vendors/",

@@ -118,13 +118,21 @@ export default async function AdminPage() {
             the bottom for what this doesn&apos;t cover.
           </p>
         </div>
-        <Link
-          href="/admin/feedback"
-          className="shrink-0 rounded-full border border-accent bg-accent-light px-4 py-2 text-sm font-medium text-accent-ink"
-        >
-          Feedback
-          {unreviewedFeedbackCount > 0 ? ` (${unreviewedFeedbackCount})` : ""}
-        </Link>
+        <div className="flex shrink-0 gap-2">
+          <Link
+            href="/admin/users"
+            className="rounded-full border border-black/10 px-4 py-2 text-sm font-medium dark:border-white/10"
+          >
+            Users
+          </Link>
+          <Link
+            href="/admin/feedback"
+            className="rounded-full border border-accent bg-accent-light px-4 py-2 text-sm font-medium text-accent-ink"
+          >
+            Feedback
+            {unreviewedFeedbackCount > 0 ? ` (${unreviewedFeedbackCount})` : ""}
+          </Link>
+        </div>
       </div>
 
       <AdminManagement

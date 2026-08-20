@@ -1,6 +1,7 @@
 "use client";
 
 import { signIn } from "next-auth/react";
+import Link from "next/link";
 import { useState } from "react";
 
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
@@ -49,6 +50,9 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
           className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10 dark:bg-transparent"
         />
       </label>
+      <Link href="/forgot-password" className="self-start text-sm underline">
+        Forgot your password?
+      </Link>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <button
         type="submit"
