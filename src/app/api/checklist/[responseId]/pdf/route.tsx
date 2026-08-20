@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isCheckableCategory } from "@/lib/checklist";
 import { jurisdictionForZip, resolvedChecklistText } from "@/lib/jurisdiction";
+import { verifyPdfDownloadToken } from "@/lib/pdf-download-token";
 import {
   groupByCategory,
   resolveTriggeredItems,
@@ -70,25 +71,40 @@ function VendorSection({
   );
 }
 
+/** A user-given checklist title ("Mom's checklist") into a safe Content-Disposition filename. */
+function sanitizeFilename(title: string): string {
+  const cleaned = title
+    .replace(/[\\/:*?"<>|]/g, "")
+    .trim()
+    .replace(/\s+/g, "-");
+  return cleaned || "checklist";
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ responseId: string }> },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const { responseId } = await params;
+
+  // Either a valid session owning this response (browsing the site
+  // directly), or a valid signed token scoped to this exact response id
+  // (the "download it as a PDF" link in the checklist-completion email —
+  // see src/lib/pdf-download-token.ts for why session cookies alone
+  // aren't enough there).
+  const session = await auth();
+  const token = request.nextUrl.searchParams.get("token");
+  const hasValidToken = verifyPdfDownloadToken(responseId, token);
+
   const response = await prisma.surveyResponse.findUnique({
     where: { id: responseId },
     include: { eventType: true },
   });
-  if (
-    !response ||
-    response.userId !== session.user.id ||
-    response.mode !== "post_event"
-  ) {
+  const ownsResponse =
+    session?.user?.id != null && response?.userId === session.user.id;
+  if (!response || response.mode !== "post_event" || !(ownsResponse || hasValidToken)) {
+    if (!session?.user?.id && !hasValidToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -179,10 +195,12 @@ export async function GET(
     </Document>,
   );
 
+  const filename = sanitizeFilename(response.title ?? `${response.eventType.name} checklist`);
+
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${response.eventType.id}-checklist.pdf"`,
+      "Content-Disposition": `attachment; filename="${filename}.pdf"`,
     },
   });
 }

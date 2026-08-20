@@ -300,8 +300,15 @@ const DESCRIPTION_OVERRIDES: Record<number, string> = {
   40: "You now have a picture of how Washington law would handle this estate. From here, this checklist will walk you through everything else that needs to happen — starting with the most time-sensitive matters first. At the end, you'll have a personalized list of what to handle next, based on your specific situation.",
   38: "Even without a will, courts still appoint someone (called a personal representative) to administer the estate. If that hasn't happened yet, or you're not sure, choose Unknown.",
   // Originally just "for King County" — unclear that's a Washington
-  // State county specifically, not a generic placeholder example.
-  80: "This needs to be handled by county, but [here](https://www.kingcounty.gov/~/media/depts/elections/how-to-vote/register-to-vote/cancel-a-registration/deceased-voter-registration-cancellation-form-en.ashx?la=en) is an example of what's required for King County, Washington State — check with your own county for its specific form.",
+  // State county specifically, not a generic placeholder example. The link
+  // itself was also a direct media-file URL, which King County has since
+  // restructured away from (confirmed 404 by a user) — swapped for their
+  // current "Cancel a voter registration" landing page, a stable page
+  // rather than a link into their file storage that breaks on redesigns.
+  80: "This needs to be handled by county, but [here](https://kingcounty.gov/en/dept/elections/how-to-vote/register-to-vote/cancel-voter-registration) is an example of what's required for King County, Washington State — check with your own county for its specific form.",
+  // Source spreadsheet had "(Facebook Group)" appended twice after The
+  // Dougy Center's link.
+  179: "Here are some websites that have good resources for dealing with grief: \n\n- [Center for Loss](https://www.centerforloss.com/)\n- [Hope for Bereaved](https://hopeforbereaved.com/)\n- [The Dougy Center](https://www.facebook.com/thedougycenter/) (Facebook Group)",
 };
 
 /**

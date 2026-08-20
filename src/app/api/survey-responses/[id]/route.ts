@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { buildChecklistEmail } from "@/lib/checklist-email";
 import { sendEmail } from "@/lib/email";
+import { createPdfDownloadToken } from "@/lib/pdf-download-token";
 import { prisma } from "@/lib/prisma";
 import { jurisdictionForZip, resolvedChecklistText } from "@/lib/jurisdiction";
 import {
@@ -323,7 +324,7 @@ export async function PATCH(
         checklistTitle: updated.title ?? "Your checklist",
         itemTitles,
         checklistUrl: `${request.nextUrl.origin}/checklist/${id}`,
-        pdfUrl: `${request.nextUrl.origin}/api/checklist/${id}/pdf`,
+        pdfUrl: `${request.nextUrl.origin}/api/checklist/${id}/pdf?token=${createPdfDownloadToken(id)}`,
       });
       try {
         await sendEmail({ to: recipient.email, subject, html });
