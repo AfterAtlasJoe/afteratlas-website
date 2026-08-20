@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -17,11 +18,12 @@ import { PrismaClient } from "../src/generated/prisma/client";
  * `&&` silently only runs the first one).
  */
 
-const XLSX_PATH = join(
-  import.meta.dirname,
-  "..",
-  "After_Atlas_July26 2026_Claude updated.xlsx",
-);
+// process.cwd() rather than import.meta.dirname — the latter evaluates to
+// undefined once this module is bundled through Next.js's route-handler
+// pipeline (see src/app/api/admin/run-seed/route.ts), even though it works
+// fine run standalone via tsx. Both resolve to the repo root when invoked
+// from there, which is how this runs either way.
+const XLSX_PATH = join(process.cwd(), "After_Atlas_July26 2026_Claude updated.xlsx");
 const EVENT_TYPE_ID = "death";
 const JURISDICTION_ID = "wa";
 /** Kept in sync with src/lib/jurisdiction.ts's GENERAL_JURISDICTION_ID. */
@@ -588,7 +590,13 @@ type Row = {
 };
 
 function readRows(): Row[] {
-  const workbook = XLSX.readFile(XLSX_PATH);
+  // XLSX.read(buffer) rather than XLSX.readFile(path) — the latter's own
+  // internal file-access path breaks once this module is bundled through
+  // Next.js's route-handler pipeline (see src/app/api/admin/run-seed/route.ts),
+  // even though the file itself is perfectly readable and plain node:fs
+  // works fine there. Reading the bytes ourselves first sidesteps whatever
+  // SheetJS's own reader does differently.
+  const workbook = XLSX.read(readFileSync(XLSX_PATH), { type: "buffer" });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   return XLSX.utils.sheet_to_json<Row>(sheet, { defval: "" });
 }
