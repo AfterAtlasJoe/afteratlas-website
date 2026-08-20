@@ -3,7 +3,6 @@ import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { requireDisclaimerAccepted } from "@/lib/disclaimer";
 import {
   groupByCategory,
   resolveTriggeredItems,
@@ -27,7 +26,6 @@ export default async function GapsPage({
   if (!session?.user?.id) {
     redirect(`/login?callbackUrl=${encodeURIComponent(`/gaps/${responseId}`)}`);
   }
-  await requireDisclaimerAccepted(session.user.id, `/gaps/${responseId}`);
 
   const response = await prisma.surveyResponse.findUnique({
     where: { id: responseId },

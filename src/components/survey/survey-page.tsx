@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { requireDisclaimerAccepted } from "@/lib/disclaimer";
+import { redirectHomeIfJustSignedUp } from "@/lib/onboarding";
 import { jurisdictionForZip, resolvedQuestionText } from "@/lib/jurisdiction";
 import { findActiveSurveyResponse } from "@/lib/survey-responses";
 import type { SurveyMode } from "@/generated/prisma/client";
@@ -17,6 +17,8 @@ type SurveyPageProps = {
   /** e.g. "/checklist" or "/gaps" — the response id is appended once the survey completes. */
   resultsBasePath: string;
   loginCallbackBasePath: string;
+  /** Set when this request is the redirect back from /disclaimer — see the `!response` branch below. */
+  disclaimerAcknowledged: boolean;
 };
 
 /**
@@ -29,6 +31,7 @@ export async function SurveyPage({
   mode,
   resultsBasePath,
   loginCallbackBasePath,
+  disclaimerAcknowledged,
 }: SurveyPageProps) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -36,10 +39,7 @@ export async function SurveyPage({
       `/login?callbackUrl=${encodeURIComponent(`${loginCallbackBasePath}/${eventTypeId}`)}`,
     );
   }
-  await requireDisclaimerAccepted(
-    session.user.id,
-    `${loginCallbackBasePath}/${eventTypeId}`,
-  );
+  await redirectHomeIfJustSignedUp(session.user.id);
 
   const eventType = await prisma.eventType.findUnique({
     where: { id: eventTypeId, active: true },
@@ -55,6 +55,15 @@ export async function SurveyPage({
   );
 
   if (!response) {
+    // The start of a brand-new checklist — show the disclaimer every time
+    // (not just once ever), unless this request is the bounce-back from
+    // having just seen it. /disclaimer itself picks first-time vs. reminder
+    // copy. Resuming an in-progress checklist further down doesn't re-gate.
+    if (!disclaimerAcknowledged) {
+      redirect(
+        `/disclaimer?callbackUrl=${encodeURIComponent(`${loginCallbackBasePath}/${eventTypeId}`)}`,
+      );
+    }
     return (
       <NewSurveyForm
         eventTypeId={eventTypeId}

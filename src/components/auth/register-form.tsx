@@ -5,7 +5,6 @@ import { useState } from "react";
 
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { PasswordInput } from "@/components/auth/password-input";
-import { DISCLAIMER_TEXT } from "@/lib/disclaimer-text";
 
 export function RegisterForm({ callbackUrl }: { callbackUrl: string }) {
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +20,6 @@ export function RegisterForm({ callbackUrl }: { callbackUrl: string }) {
     const password = formData.get("password");
     const confirmPassword = formData.get("confirmPassword");
     const name = formData.get("name");
-    const disclaimerAccepted = formData.get("disclaimerAccepted") === "on";
 
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
@@ -32,7 +30,7 @@ export function RegisterForm({ callbackUrl }: { callbackUrl: string }) {
     const response = await fetch("/api/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, name, disclaimerAccepted }),
+      body: JSON.stringify({ email, password, name }),
     });
 
     if (!response.ok) {
@@ -52,7 +50,11 @@ export function RegisterForm({ callbackUrl }: { callbackUrl: string }) {
       setError("Account created, but log in failed. Try logging in manually.");
       return;
     }
-    window.location.href = callbackUrl;
+    // New signups always land on the home page regardless of how they got
+    // here (e.g. via "Create a checklist" redirecting a logged-out visitor
+    // through /register) — the disclaimer and the checklist flow itself
+    // start fresh the next time they click "Create a checklist".
+    window.location.href = "/";
   }
 
   return (
@@ -81,13 +83,6 @@ export function RegisterForm({ callbackUrl }: { callbackUrl: string }) {
       <label className="flex flex-col gap-1 text-sm">
         Confirm password
         <PasswordInput name="confirmPassword" required minLength={8} />
-      </label>
-      <div className="flex max-h-32 flex-col gap-2 overflow-y-auto whitespace-pre-line rounded-md border border-black/10 p-3 text-xs text-zinc-600 dark:border-white/10 dark:text-zinc-400">
-        {DISCLAIMER_TEXT}
-      </div>
-      <label className="flex items-start gap-2 text-sm">
-        <input type="checkbox" name="disclaimerAccepted" required className="mt-1" />
-        I understand and agree.
       </label>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <button
