@@ -47,11 +47,17 @@ export async function generateMetadata({
       url: path,
       type: "article",
       publishedTime: article.publishedAt.toISOString(),
+      // A page's own `openGraph`/`twitter` object fully replaces the root
+      // layout's rather than merging field-by-field, so the site-wide
+      // opengraph-image.png convention would otherwise silently disappear
+      // on every article page — repeat it explicitly here.
+      images: ["/opengraph-image.png"],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
+      images: ["/opengraph-image.png"],
     },
   };
 }
