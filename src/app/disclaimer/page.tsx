@@ -39,7 +39,7 @@ export default async function DisclaimerPage({
         {DISCLAIMER_TEXT}
       </div>
       <DisclaimerAcceptForm
-        callbackUrl={callbackUrl ?? "/dashboard"}
+        callbackUrl={callbackUrl ?? "/"}
         alreadyAccepted={alreadyAccepted}
       />
     </div>
