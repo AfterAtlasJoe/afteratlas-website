@@ -212,8 +212,8 @@ async function seedFile(seed: SeedFile) {
 export async function seedJson() {
   // process.cwd() rather than import.meta.dirname — the latter evaluates to
   // undefined once this module is bundled through Next.js's route-handler
-  // pipeline (see src/app/api/admin/run-seed/route.ts), even though it
-  // works fine run standalone via tsx. Both resolve to the repo root when
+  // pipeline (as used by the former one-time /api/admin/run-seed route),
+  // even though it works fine run standalone via tsx. Both resolve to the repo root when
   // invoked from there, which is how this runs either way.
   const seedDataDir = join(process.cwd(), "prisma", "seed-data");
   const files = readdirSync(seedDataDir).filter((f) => f.endsWith(".json"));

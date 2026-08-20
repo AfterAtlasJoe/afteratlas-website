@@ -20,8 +20,9 @@ import { PrismaClient } from "../src/generated/prisma/client";
 
 // process.cwd() rather than import.meta.dirname — the latter evaluates to
 // undefined once this module is bundled through Next.js's route-handler
-// pipeline (see src/app/api/admin/run-seed/route.ts), even though it works
-// fine run standalone via tsx. Both resolve to the repo root when invoked
+// pipeline (as used by the former one-time /api/admin/run-seed route),
+// even though it works fine run standalone via tsx. Both resolve to the
+// repo root when invoked
 // from there, which is how this runs either way.
 const XLSX_PATH = join(process.cwd(), "After_Atlas_July26 2026_Claude updated.xlsx");
 const EVENT_TYPE_ID = "death";
@@ -599,8 +600,9 @@ type Row = {
 function readRows(): Row[] {
   // XLSX.read(buffer) rather than XLSX.readFile(path) — the latter's own
   // internal file-access path breaks once this module is bundled through
-  // Next.js's route-handler pipeline (see src/app/api/admin/run-seed/route.ts),
-  // even though the file itself is perfectly readable and plain node:fs
+  // Next.js's route-handler pipeline (as used by the former one-time
+  // /api/admin/run-seed route), even though the file itself is perfectly
+  // readable and plain node:fs
   // works fine there. Reading the bytes ourselves first sidesteps whatever
   // SheetJS's own reader does differently.
   const workbook = XLSX.read(readFileSync(XLSX_PATH), { type: "buffer" });
