@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { isCheckableCategory } from "@/lib/checklist";
 import { jurisdictionForZip, resolvedChecklistText } from "@/lib/jurisdiction";
 import {
   groupByCategory,
@@ -62,6 +63,9 @@ export default async function ChecklistPage({
     [...grouped.keys()],
     topicBuckets,
   );
+  const checkableCount = triggered.filter((item) =>
+    isCheckableCategory(item.category),
+  ).length;
 
   const vendorCategories = new Map(
     triggered
@@ -105,10 +109,15 @@ export default async function ChecklistPage({
           groups={orderedCategories.map((category) => ({
             category,
             items: grouped.get(category)!,
+            checkable: isCheckableCategory(category),
           }))}
           vendorResultsByCategoryId={vendorResultsByCategoryId}
-          totalCount={triggered.length}
-          initialCompletedIds={response.completedChecklistItemIds}
+          totalCount={checkableCount}
+          initialCompletedIds={response.completedChecklistItemIds.filter((id) =>
+            triggered.some(
+              (item) => item.id === id && isCheckableCategory(item.category),
+            ),
+          )}
         />
       )}
 

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { isCheckableCategory } from "@/lib/checklist";
 import { jurisdictionForZip, resolvedChecklistText } from "@/lib/jurisdiction";
 import {
   groupByCategory,
@@ -110,7 +111,8 @@ export async function GET(
   ).map((item) => ({ ...item, ...resolvedChecklistText(item, jurisdictionId) }));
   const grouped = groupByCategory(triggered);
   const orderedCategories = sortCategoriesByDisplayOrder([...grouped.keys()], topicBuckets);
-  const completedCount = triggered.filter((item) =>
+  const checkableItems = triggered.filter((item) => isCheckableCategory(item.category));
+  const completedCount = checkableItems.filter((item) =>
     response.completedChecklistItemIds.includes(item.id),
   ).length;
 
@@ -136,17 +138,19 @@ export async function GET(
           {response.title ?? `${response.eventType.name} checklist`}
         </Text>
         <Text style={styles.subtitle}>
-          {completedCount} of {triggered.length} task{triggered.length === 1 ? "" : "s"} done.
+          {completedCount} of {checkableItems.length} task
+          {checkableItems.length === 1 ? "" : "s"} done.
         </Text>
         {orderedCategories.map((category) => (
           <View key={category}>
             <Text style={styles.category}>{category}</Text>
             {grouped.get(category)!.map((item) => {
-              const done = response.completedChecklistItemIds.includes(item.id);
+              const checkable = isCheckableCategory(category);
+              const done = checkable && response.completedChecklistItemIds.includes(item.id);
               return (
               <View key={item.id} style={styles.item}>
                 <Text style={done ? styles.itemTitleDone : styles.itemTitle}>
-                  {done ? "☑ " : "☐ "}
+                  {checkable ? (done ? "☑ " : "☐ ") : ""}
                   {item.title}
                 </Text>
                 <Text style={styles.itemDescription}>{item.description}</Text>

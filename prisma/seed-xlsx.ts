@@ -365,6 +365,37 @@ const RARE_TOPIC_CHECKLIST_ITEMS: Record<number, { id: string; title: string }> 
 };
 
 /**
+ * uid 73 is an "info" row (Washington's death-certificate order-form
+ * link, shown after answering "No" to uid 72's "Do you have certified
+ * copies of the death certificate?") whose own `info_checklist_item`
+ * column is blank in the source spreadsheet — unlike every other info row
+ * reached this way (e.g. uid 166 "war veteran" -> uid 167), so nothing
+ * ever creates a ChecklistItem for it and the link never reaches the
+ * final checklist even though it's genuinely useful there. Confirmed via
+ * a full pass cross-referencing every info-row link against all
+ * ChecklistItem content — this was the only one missing. Assigning the id
+ * here (read through `infoChecklistItemFor`/`checklistItemTitleFor`
+ * everywhere `info_checklist_item`/`row.name` are otherwise read for this
+ * purpose) reuses the exact same checklist-item-creation and
+ * trigger-wiring code as every spreadsheet-driven row, rather than
+ * duplicating that logic.
+ */
+const MISSING_INFO_CHECKLIST_ITEMS: Record<number, { id: string; title: string }> = {
+  // row.name is "Death Certificate info" — the screen's internal label,
+  // not a task title; give the checklist entry proper task-phrased title
+  // instead of using it verbatim like the normal spreadsheet-driven path does.
+  73: { id: "wa_death-certificate-order-form", title: "Order Copies of the Death Certificate" },
+};
+
+function infoChecklistItemFor(row: Row): string {
+  return row.info_checklist_item || MISSING_INFO_CHECKLIST_ITEMS[row.uid]?.id || "";
+}
+
+function checklistItemTitleFor(row: Row): string {
+  return MISSING_INFO_CHECKLIST_ITEMS[row.uid]?.title ?? row.name;
+}
+
+/**
  * Bundles several sequential, independent yes/no questions into one
  * "select all that apply" screen instead of forcing a full-page
  * transition per question — for less-common situations only; core or
@@ -805,7 +836,7 @@ export async function seedXlsx() {
   // (e.g. a stray "Home & Property" category from data this import no
   // longer produces).
   const checklistItemSlugs = new Set([
-    ...rows.map((r) => r.info_checklist_item).filter(Boolean),
+    ...rows.map((r) => infoChecklistItemFor(r)).filter(Boolean),
     ...Object.values(RARE_TOPIC_CHECKLIST_ITEMS).map((item) => item.id),
   ]);
   const expectedQuestionIds = new Set(
@@ -852,20 +883,21 @@ export async function seedXlsx() {
 
   // --- Checklist items (created before Questions so skipIfChecklistItemShownId can reference them) ---
   for (const row of rows) {
-    if (!row.info_checklist_item) continue;
+    const checklistItemId = infoChecklistItemFor(row);
+    if (!checklistItemId) continue;
     // DESCRIPTION_OVERRIDES applies here too — the row's own description
     // feeds both the Question shown mid-survey and the ChecklistItem
     // shown on the final checklist; they'd otherwise silently diverge.
     const { cleaned, links } = extractLinks(
       DESCRIPTION_OVERRIDES[row.uid] ?? (row.description || ""),
     );
-    const generalOverride = CHECKLIST_ITEM_GENERAL_OVERRIDES[row.info_checklist_item];
+    const generalOverride = CHECKLIST_ITEM_GENERAL_OVERRIDES[checklistItemId];
     await prisma.checklistItem.upsert({
-      where: { id: row.info_checklist_item },
+      where: { id: checklistItemId },
       create: {
-        id: row.info_checklist_item,
+        id: checklistItemId,
         eventTypeId: EVENT_TYPE_ID,
-        title: row.name,
+        title: checklistItemTitleFor(row),
         description: cleaned,
         category: categoryFromTopic(row.topic),
         relatedLinks: links,
@@ -874,7 +906,7 @@ export async function seedXlsx() {
         vendorCategoryId: vendorCategoryIdFor(row),
       },
       update: {
-        title: row.name,
+        title: checklistItemTitleFor(row),
         description: cleaned,
         category: categoryFromTopic(row.topic),
         relatedLinks: links,
@@ -1027,17 +1059,18 @@ export async function seedXlsx() {
       branchCount++;
 
       const targetRow = targetUid !== null ? byUid.get(targetUid) : undefined;
-      if (targetRow?.info_checklist_item) {
+      const targetChecklistItemId = targetRow ? infoChecklistItemFor(targetRow) : "";
+      if (targetChecklistItemId) {
         await prisma.checklistItemTrigger.upsert({
           where: {
             checklistItemId_questionId_answerOptionId: {
-              checklistItemId: targetRow.info_checklist_item,
+              checklistItemId: targetChecklistItemId,
               questionId: questionId(row.uid),
               answerOptionId,
             },
           },
           create: {
-            checklistItemId: targetRow.info_checklist_item,
+            checklistItemId: targetChecklistItemId,
             questionId: questionId(row.uid),
             answerOptionId,
           },

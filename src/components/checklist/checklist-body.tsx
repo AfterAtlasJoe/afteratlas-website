@@ -21,7 +21,7 @@ type ChecklistItemData = {
 
 type ChecklistBodyProps = {
   responseId: string;
-  groups: { category: string; items: ChecklistItemData[] }[];
+  groups: { category: string; items: ChecklistItemData[]; checkable: boolean }[];
   vendorResultsByCategoryId: Record<string, YelpBusiness[]>;
   totalCount: number;
   initialCompletedIds: string[];
@@ -61,7 +61,7 @@ export function ChecklistBody({
       <p className="text-sm text-zinc-500">
         {completedIds.size} of {totalCount} task{totalCount === 1 ? "" : "s"} done.
       </p>
-      {groups.map(({ category, items }) => (
+      {groups.map(({ category, items, checkable }) => (
         <section key={category} className="flex flex-col gap-4">
           <h2 className="text-lg font-medium">{category}</h2>
           {items.map((item) => (
@@ -70,6 +70,7 @@ export function ChecklistBody({
               responseId={responseId}
               item={item}
               businesses={vendorResultsByCategoryId[item.vendorCategory?.id ?? ""] ?? []}
+              checkable={checkable}
               completed={completedIds.has(item.id)}
               onToggle={handleToggle}
             />
